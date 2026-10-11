@@ -86,40 +86,10 @@ export default function App() {
     localStorage.setItem('streamverse_history', JSON.stringify(history));
   }, [history]);
 
-  // Deep linking: read URL query params on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const type = params.get('type');
-    const id = params.get('id');
-    const srv = params.get('server');
-    const s = parseInt(params.get('s') || params.get('season') || '1', 10);
-    const ep = parseInt(params.get('e') || params.get('ep') || params.get('episode') || '1', 10);
-    const lang = params.get('lang') || 'sub';
-
-    if (id) {
-      // Find matching item or construct dynamic one
-      let found = [...CURATED_MOVIES, ...TV_SHOWS, ...HINDI_CINEMA, ...ANIME_CATALOG]
-        .find(i => String(i.id) === String(id) || String(i.anilistId) === String(id));
-
-      if (!found) {
-        found = {
-          id,
-          anilistId: type === 'anime' ? id : undefined,
-          type: type || 'movie',
-          title: `${type?.toUpperCase() || 'Media'} #${id}`,
-          poster: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
-          seasons: [{ seasonNumber: s, episodesCount: 24 }]
-        };
-      }
-
-      handlePlayMedia(found, {
-        server: srv || (type === 'anime' ? 'anime' : (found.preferredServer || settings.defaultServer || 'server1')),
-        season: s,
-        episode: ep,
-        language: lang
-      });
-    }
-  }, []);
+  // Trailer modal handler
+  const handleOpenTrailer = (trailerKey, title) => {
+    setTrailerModal({ isOpen: true, trailerKey, title });
+  };
 
   // Update history whenever active media or episode changes
   const recordHistory = (media, srv, s, ep, lang) => {
@@ -193,14 +163,10 @@ export default function App() {
     });
   };
 
-  // Trailer modal handler
-  const handleOpenTrailer = (trailerKey, title) => {
-    setTrailerModal({ isOpen: true, trailerKey, title });
-  };
-
   // Search handler
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
+  const handleSearch = async (query = searchQuery) => {
+    const trimmed = query.trim();
+    if (!trimmed) {
       setSearchResults([]);
       return;
     }
@@ -208,8 +174,8 @@ export default function App() {
     setIsSearching(true);
     try {
       const [tmdbResults, animeResults] = await Promise.all([
-        searchTMDB(searchQuery, settings.tmdbApiKey),
-        searchAniList(searchQuery)
+        searchTMDB(trimmed, settings.tmdbApiKey),
+        searchAniList(trimmed)
       ]);
 
       const combined = [...tmdbResults, ...animeResults];
@@ -221,17 +187,82 @@ export default function App() {
     }
   };
 
-  // Trigger search on debounce or Enter
+  // Deep linking: read URL query params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get('type');
+    const id = params.get('id') || params.get('tmdb') || params.get('anilistId') || params.get('tmdbId');
+    const trailer = params.get('trailer') || params.get('trailerKey') || (type === 'trailer' ? id : null);
+    const srv = params.get('server');
+    const s = parseInt(params.get('s') || params.get('season') || '1', 10);
+    const ep = parseInt(params.get('e') || params.get('ep') || params.get('episode') || '1', 10);
+    const lang = params.get('lang') || 'sub';
+
+    if (trailer) {
+      handleOpenTrailer(trailer, 'Official Trailer');
+      return;
+    }
+
+    if (id) {
+      // Find matching item or construct dynamic one
+      let found = [...CURATED_MOVIES, ...TV_SHOWS, ...HINDI_CINEMA, ...ANIME_CATALOG]
+        .find(i => String(i.id) === String(id) || String(i.anilistId) === String(id));
+
+      if (!found) {
+        found = {
+          id,
+          anilistId: type === 'anime' ? id : undefined,
+          type: type || 'movie',
+          title: `${type?.toUpperCase() || 'Media'} #${id}`,
+          poster: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+          seasons: [{ seasonNumber: s, episodesCount: 24 }]
+        };
+      }
+
+      handlePlayMedia(found, {
+        server: srv || (type === 'anime' ? 'anime' : (found.preferredServer || settings.defaultServer || 'server1')),
+        season: s,
+        episode: ep,
+        language: lang
+      });
+    }
+  }, []);
+
+  // Bi-directional URL synchronization
+  useEffect(() => {
+    if (isPlaying && activeMedia && activeMedia.id) {
+      const params = new URLSearchParams();
+      params.set('type', activeMedia.type || 'movie');
+      params.set('id', activeMedia.id);
+      if (activeServer) params.set('server', activeServer);
+
+      if (activeMedia.type === 'tv') {
+        params.set('s', String(season));
+        params.set('e', String(episode));
+      } else if (activeMedia.type === 'anime') {
+        params.set('ep', String(episode));
+        params.set('lang', language);
+      }
+
+      window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+    } else if (!isPlaying) {
+      if (window.location.search && !window.location.search.includes('tab=')) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, [isPlaying, activeMedia, activeServer, season, episode, language]);
+
+  // Trigger search on debounce
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.trim()) {
-        handleSearch();
+        handleSearch(searchQuery);
       } else {
         setSearchResults([]);
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, settings.tmdbApiKey]);
 
   return (
     <div className="app-layout">
@@ -274,6 +305,10 @@ export default function App() {
             cinemaMode={cinemaMode}
             setCinemaMode={setCinemaMode}
             onOpenTrailer={() => handleOpenTrailer(activeMedia.trailerKey, activeMedia.title)}
+            onClose={() => {
+              setIsPlaying(false);
+              setActiveMedia(null);
+            }}
           />
         )}
 

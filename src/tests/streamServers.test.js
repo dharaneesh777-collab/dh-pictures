@@ -142,9 +142,38 @@ describe('STREAM_SERVERS Configuration & Specification Conformance', () => {
         .toBe('https://vixsrc.to/tv/10/4/12');
     });
 
-    it('falls back to server1 if unknown serverId provided', () => {
-      expect(getStreamUrl({ serverId: 'unknown_server_99', type: 'movie', id: '123' }))
-        .toBe('https://vixsrc.to/movie/123');
+    it('allows switching away from anime server to other servers like server1 and server6', () => {
+      // Prior attempt had a bug where type === 'anime' locked all servers to Megaplay
+      expect(getStreamUrl({ serverId: 'server1', type: 'anime', id: '16498', episode: 5 }))
+        .toBe('https://vixsrc.to/tv/16498/1/5');
+      expect(getStreamUrl({ serverId: 'server3', type: 'anime', id: '16498', episode: 10 }))
+        .toBe('https://vidsrc.to/embed/tv/16498/1/10');
+      expect(getStreamUrl({ serverId: 'server6', type: 'anime', id: '16498', episode: 2 }))
+        .toBe('https://screenscape.me/embed?tmdb=16498&type=tv&s=1&e=2');
+    });
+
+    it('supports trailer server mode directly in getStreamUrl', () => {
+      expect(getStreamUrl({ serverId: 'trailer', trailerKey: 'uYPbbksJxIg' }))
+        .toBe('https://www.youtube.com/embed/uYPbbksJxIg?autoplay=1');
+      expect(getStreamUrl({ serverId: 'trailer', id: 'cqGjhVJWtEg' }))
+        .toBe('https://www.youtube.com/embed/cqGjhVJWtEg?autoplay=1');
+    });
+
+    it('extracts trailer key from youtube.com/embed/ URLs and handles query parameters', () => {
+      expect(getTrailerUrl('https://www.youtube.com/embed/uYPbbksJxIg?autoplay=1'))
+        .toBe('https://www.youtube.com/embed/uYPbbksJxIg?autoplay=1');
+      expect(getTrailerUrl('uYPbbksJxIg?si=special_tracking_param'))
+        .toBe('https://www.youtube.com/embed/uYPbbksJxIg?autoplay=1');
+      expect(getTrailerUrl('  uYPbbksJxIg  '))
+        .toBe('https://www.youtube.com/embed/uYPbbksJxIg?autoplay=1');
+    });
+
+    it('trims whitespace on IDs and parameter values', () => {
+      expect(getStreamUrl({ serverId: 'server1', type: 'movie', id: ' 872585 ' }))
+        .toBe('https://vixsrc.to/movie/872585');
+      expect(getStreamUrl({ serverId: 'anime', anilistId: ' 16498 ', episode: ' 3 ', language: 'sub' }))
+        .toBe('https://megaplay.buzz/stream/ani/16498/3/sub');
     });
   });
 });
+

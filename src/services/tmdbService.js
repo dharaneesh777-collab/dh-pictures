@@ -4,7 +4,7 @@
  * and provides fallbacks to curated datasets.
  */
 
-import { CURATED_MOVIES, TV_SHOWS, HINDI_CINEMA } from './catalogData';
+import { CURATED_MOVIES, TV_SHOWS, HINDI_CINEMA, ANIME_CATALOG } from './catalogData';
 
 export async function searchTMDB(query, apiKey = '') {
   if (!query || !query.trim()) return [];
@@ -41,8 +41,8 @@ export async function searchTMDB(query, apiKey = '') {
     }
   }
 
-  // Fallback to searching our curated catalog of Movies, TV and Hindi cinema
-  const allCurated = [...CURATED_MOVIES, ...TV_SHOWS, ...HINDI_CINEMA];
+  // Fallback to searching our curated catalog of Movies, TV, Hindi cinema and Anime
+  const allCurated = [...CURATED_MOVIES, ...TV_SHOWS, ...HINDI_CINEMA, ...ANIME_CATALOG];
   return allCurated.filter(item => 
     item.title.toLowerCase().includes(cleanQuery) ||
     item.genres.some(g => g.toLowerCase().includes(cleanQuery)) ||

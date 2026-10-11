@@ -34,8 +34,20 @@ query ($search: String, $page: Int, $perPage: Int) {
 }
 `;
 
+import { ANIME_CATALOG } from './catalogData';
+
 export async function searchAniList(searchQuery, page = 1, perPage = 12) {
   if (!searchQuery || !searchQuery.trim()) return [];
+
+  const cleanQuery = searchQuery.trim().toLowerCase();
+
+  const getCuratedMatches = () => {
+    return ANIME_CATALOG.filter(item =>
+      item.title.toLowerCase().includes(cleanQuery) ||
+      item.genres.some(g => g.toLowerCase().includes(cleanQuery)) ||
+      (item.overview && item.overview.toLowerCase().includes(cleanQuery))
+    );
+  };
 
   try {
     const response = await fetch(ANILIST_GRAPHQL_ENDPOINT, {
@@ -47,7 +59,7 @@ export async function searchAniList(searchQuery, page = 1, perPage = 12) {
       body: JSON.stringify({
         query: SEARCH_ANIME_QUERY,
         variables: {
-          search: searchQuery.trim(),
+          search: cleanQuery,
           page,
           perPage
         }
@@ -56,11 +68,15 @@ export async function searchAniList(searchQuery, page = 1, perPage = 12) {
 
     if (!response.ok) {
       console.warn('AniList API error status:', response.status);
-      return [];
+      return getCuratedMatches();
     }
 
     const data = await response.json();
     const mediaList = data?.data?.Page?.media || [];
+
+    if (mediaList.length === 0) {
+      return getCuratedMatches();
+    }
 
     return mediaList.map(item => ({
       id: String(item.id),
@@ -79,7 +95,7 @@ export async function searchAniList(searchQuery, page = 1, perPage = 12) {
       audioOptions: ['sub', 'dub']
     }));
   } catch (err) {
-    console.error('Error querying AniList:', err);
-    return [];
+    console.warn('Error querying AniList, falling back to curated anime:', err);
+    return getCuratedMatches();
   }
 }

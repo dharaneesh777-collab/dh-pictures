@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   STREAM_SERVERS, 
-  getStreamUrl 
+  getStreamUrl,
+  getTrailerUrl
 } from '../services/streamServers';
 import { 
   Server, 
@@ -16,7 +17,7 @@ import {
   ChevronLeft, 
   ChevronRight,
   Film,
-  Sparkles
+  X
 } from 'lucide-react';
 import EpisodeSelector from './EpisodeSelector';
 
@@ -32,7 +33,8 @@ export default function VideoPlayer({
   setLanguage,
   cinemaMode,
   setCinemaMode,
-  onOpenTrailer
+  onOpenTrailer,
+  onClose
 }) {
   const [copied, setCopied] = useState(false);
   const [useSandbox, setUseSandbox] = useState(false);
@@ -44,15 +46,18 @@ export default function VideoPlayer({
   const isTv = media.type === 'tv';
 
   // Compute stream URL
-  const currentStreamUrl = getStreamUrl({
-    serverId: activeServer,
-    type: media.type || 'movie',
-    id: media.id,
-    season,
-    episode,
-    anilistId: media.anilistId || media.id,
-    language
-  });
+  const currentStreamUrl = activeServer === 'trailer'
+    ? getTrailerUrl(media.trailerKey)
+    : getStreamUrl({
+        serverId: activeServer,
+        type: media.type || 'movie',
+        id: media.id,
+        season,
+        episode,
+        anilistId: media.anilistId || media.id,
+        language,
+        trailerKey: media.trailerKey
+      });
 
   const handleCopyUrl = () => {
     if (!currentStreamUrl) return;
@@ -65,17 +70,37 @@ export default function VideoPlayer({
     setRefreshKey(prev => prev + 1);
   };
 
+  // Seasons data for TV
+  const seasons = media.seasons || [{ seasonNumber: 1, episodesCount: 10 }];
+  const currentSeasonData = seasons.find(s => s.seasonNumber === season) || seasons[0];
+  const maxEpisodesInSeason = currentSeasonData ? currentSeasonData.episodesCount : 10;
+  const totalSeasons = seasons.length;
+
   // Next / Prev episode helpers
   const handlePrevEpisode = () => {
     if (episode > 1) {
       setEpisode(episode - 1);
+    } else if (isTv && season > 1) {
+      const prevSeasonData = seasons.find(s => s.seasonNumber === season - 1);
+      const prevMax = prevSeasonData ? prevSeasonData.episodesCount : 10;
+      setSeason(season - 1);
+      setEpisode(prevMax);
     }
   };
 
   const handleNextEpisode = () => {
-    const maxEp = isAnime ? (media.episodesCount || 100) : 50;
-    if (episode < maxEp) {
-      setEpisode(episode + 1);
+    if (isAnime) {
+      const maxEp = media.episodesCount || 1200;
+      if (episode < maxEp) {
+        setEpisode(episode + 1);
+      }
+    } else if (isTv) {
+      if (episode < maxEpisodesInSeason) {
+        setEpisode(episode + 1);
+      } else if (season < totalSeasons) {
+        setSeason(season + 1);
+        setEpisode(1);
+      }
     }
   };
 
@@ -97,6 +122,9 @@ export default function VideoPlayer({
           {isAnime && (
             <span className="season-ep-tag">Episode {episode} ({language.toUpperCase()})</span>
           )}
+          {activeServer === 'trailer' && (
+            <span className="season-ep-tag trailer-tag">YouTube Trailer Mode</span>
+          )}
         </div>
 
         <div className="player-quick-actions">
@@ -104,10 +132,10 @@ export default function VideoPlayer({
             <button 
               className="btn-trailer-quick"
               onClick={onOpenTrailer}
-              title="Watch Official YouTube Trailer"
+              title="Watch Official YouTube Trailer in Modal"
             >
               <Film size={15} />
-              <span>Trailer</span>
+              <span>Trailer Modal</span>
             </button>
           )}
 
@@ -145,6 +173,17 @@ export default function VideoPlayer({
           >
             {copied ? <Check size={16} className="text-green" /> : <Copy size={16} />}
           </button>
+
+          {onClose && (
+            <button
+              className="btn-control btn-close-player"
+              onClick={onClose}
+              title="Close Player"
+              aria-label="Close Player"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -215,6 +254,23 @@ export default function VideoPlayer({
               </button>
             );
           })}
+
+          {media.trailerKey && (
+            <button
+              onClick={() => setActiveServer('trailer')}
+              className={`server-btn ${activeServer === 'trailer' ? 'selected' : ''}`}
+              style={{
+                '--accent-color': '#ef4444'
+              }}
+              title="Official YouTube Trailer with autoplay=1"
+            >
+              <span className="server-tag" style={{ backgroundColor: '#ef4444' }}>
+                Trailer
+              </span>
+              <span className="server-name">YouTube Trailer</span>
+              {activeServer === 'trailer' && <span className="active-dot" />}
+            </button>
+          )}
         </div>
 
         {/* Sub / Dub Selector for Anime Server */}

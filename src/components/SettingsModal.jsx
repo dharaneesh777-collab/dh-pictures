@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Key, Server, Shield, Trash2, Check, BookOpen } from 'lucide-react';
+import { X, Key, Server, Trash2, Check, BookOpen } from 'lucide-react';
 import { STREAM_SERVERS } from '../services/streamServers';
 
 export default function SettingsModal({

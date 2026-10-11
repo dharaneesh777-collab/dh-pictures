@@ -123,44 +123,67 @@ export const STREAM_SERVERS = [
  * Helper to build stream URL given server ID and parameters
  */
 export function getStreamUrl({
-  serverId = 'server1',
+  serverId,
   type = 'movie',
   id = '',
   season = 1,
   episode = 1,
   anilistId = '',
-  language = 'sub'
+  language = 'sub',
+  trailerKey = ''
 }) {
-  const server = STREAM_SERVERS.find(s => s.id === serverId) || STREAM_SERVERS[0];
-  
-  if (serverId === 'anime' || type === 'anime') {
+  const cleanId = String(id || anilistId || '').trim();
+  const cleanAnilistId = String(anilistId || id || '').trim();
+  const effectiveServerId = serverId || (type === 'anime' ? 'anime' : 'server1');
+
+  if (effectiveServerId === 'trailer') {
+    return getTrailerUrl(trailerKey || cleanId);
+  }
+
+  if (effectiveServerId === 'anime') {
     const animeServer = STREAM_SERVERS.find(s => s.id === 'anime');
     return animeServer.buildUrl({
-      anilistId: anilistId || id,
-      episode: Number(episode) || 1,
+      anilistId: cleanAnilistId,
+      episode: Math.max(1, Number(episode) || 1),
       language: language === 'dub' ? 'dub' : 'sub'
     });
   }
 
+  const server = STREAM_SERVERS.find(s => s.id === effectiveServerId) || STREAM_SERVERS[0];
+
   return server.buildUrl({
-    type,
-    id,
-    season: Number(season) || 1,
-    episode: Number(episode) || 1
+    type: type === 'anime' ? 'tv' : type,
+    id: cleanId,
+    season: Math.max(1, Number(season) || 1),
+    episode: Math.max(1, Number(episode) || 1)
   });
 }
 
 /**
- * Generate YouTube Trailer Embed URL
+ * Generate YouTube Trailer Embed URL with autoplay=1
  */
 export function getTrailerUrl(trailerKey) {
   if (!trailerKey) return '';
-  // Clean trailer key if full URL was passed by mistake
-  let key = trailerKey;
-  if (key.includes('v=')) {
-    key = key.split('v=')[1].split('&')[0];
+  let key = String(trailerKey).trim();
+  
+  if (key.includes('youtube.com/watch')) {
+    const match = key.match(/[?&]v=([^&#]+)/);
+    if (match && match[1]) {
+      key = match[1];
+    }
   } else if (key.includes('youtu.be/')) {
-    key = key.split('youtu.be/')[1].split('?')[0];
+    key = key.split('youtu.be/')[1].split(/[?&#]/)[0];
+  } else if (key.includes('youtube.com/embed/')) {
+    key = key.split('youtube.com/embed/')[1].split(/[?&#]/)[0];
+  } else if (key.includes('v=')) {
+    key = key.split('v=')[1].split(/[&#]/)[0];
+  } else if (key.includes('?')) {
+    key = key.split('?')[0];
   }
+
+  // Remove any stray slashes or query characters
+  key = key.replace(/[^a-zA-Z0-9_-]/g, '');
+  if (!key) return '';
+
   return `https://www.youtube.com/embed/${key}?autoplay=1`;
 }

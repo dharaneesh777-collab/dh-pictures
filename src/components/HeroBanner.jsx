@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Film, Star, Clock, Info } from 'lucide-react';
+import { Play, Film, Star, Clock } from 'lucide-react';
 
 export default function HeroBanner({ item, onPlay, onOpenTrailer }) {
   if (!item) return null;

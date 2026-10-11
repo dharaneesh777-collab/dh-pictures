@@ -5,10 +5,6 @@ import {
   Copy, 
   Check, 
   Terminal, 
-  Sparkles, 
-  Film, 
-  Tv, 
-  Languages, 
   Flame 
 } from 'lucide-react';
 import { STREAM_SERVERS, getStreamUrl, getTrailerUrl } from '../services/streamServers';
@@ -29,9 +25,10 @@ export default function CustomStreamLauncher({ onLaunchStream }) {
     generatedUrl = getTrailerUrl(trailerKey);
   } else if (mediaType === 'anime') {
     generatedUrl = getStreamUrl({
-      serverId: 'anime',
+      serverId: selectedServer,
       type: 'anime',
       anilistId: customId,
+      id: customId,
       episode,
       language: animeLang
     });
@@ -60,7 +57,9 @@ export default function CustomStreamLauncher({ onLaunchStream }) {
           type: 'movie',
           trailerKey
         },
-        openTrailerNow: true
+        server: 'trailer',
+        season: 1,
+        episode: 1
       });
       return;
     }
@@ -72,9 +71,9 @@ export default function CustomStreamLauncher({ onLaunchStream }) {
           anilistId: customId,
           type: 'anime',
           title: `Anime (AniList #${customId})`,
-          episodesCount: Math.max(Number(episode) || 12, 12)
+          episodesCount: Math.max(Number(episode) || 24, 24)
         },
-        server: 'anime',
+        server: selectedServer === 'server1' ? 'anime' : selectedServer,
         season: 1,
         episode: Number(episode) || 1,
         language: animeLang
@@ -115,44 +114,68 @@ export default function CustomStreamLauncher({ onLaunchStream }) {
           <div>
             <h3 className="launcher-title">Direct Custom Stream Launcher</h3>
             <p className="launcher-sub">
-              Test and stream ANY custom TMDB ID, TV Season/Episode, AniList Anime ID, or YouTube trailer directly.
+              Test and stream ANY custom TMDB ID, TV Season/Episode, AniList Anime ID, or YouTube trailer across all 8 configured APIs.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Preset Quick Chips */}
+      {/* Preset Quick Chips for All Configured Servers */}
       <div className="presets-bar">
-        <span className="presets-label"><Flame size={14} className="text-orange" /> Quick Presets:</span>
+        <span className="presets-label"><Flame size={14} className="text-orange" /> Presets:</span>
         <button
           className="preset-chip"
           onClick={() => applyPreset({ type: 'movie', id: '872585', server: 'server1' })}
         >
-          Oppenheimer (Server 1)
+          S1: Oppenheimer
         </button>
         <button
           className="preset-chip"
-          onClick={() => applyPreset({ type: 'movie', id: '872906', server: 'server6' })}
+          onClick={() => applyPreset({ type: 'movie', id: '550', server: 'server2' })}
         >
-          Jawan (Hindi Server 6)
+          S2: Fight Club
         </button>
         <button
           className="preset-chip"
           onClick={() => applyPreset({ type: 'tv', id: '1396', season: 1, episode: 1, server: 'server3' })}
         >
-          Breaking Bad S1E1 (Server 3)
+          S3: Breaking Bad
         </button>
         <button
           className="preset-chip"
-          onClick={() => applyPreset({ type: 'anime', id: '16498', episode: 1, lang: 'sub' })}
+          onClick={() => applyPreset({ type: 'movie', id: '693134', server: 'server4' })}
         >
-          Attack on Titan Ep 1 (Sub)
+          S4: Dune 2
         </button>
         <button
           className="preset-chip"
-          onClick={() => applyPreset({ type: 'anime', id: '113415', episode: 1, lang: 'dub' })}
+          onClick={() => applyPreset({ type: 'movie', id: '157336', server: 'server5' })}
         >
-          Jujutsu Kaisen Ep 1 (Dub)
+          S5: Interstellar (Autoplay)
+        </button>
+        <button
+          className="preset-chip"
+          onClick={() => applyPreset({ type: 'movie', id: '872906', server: 'server6' })}
+        >
+          S6: Jawan (Hindi)
+        </button>
+        <button
+          className="preset-chip"
+          onClick={() => applyPreset({ type: 'anime', id: '16498', episode: 1, lang: 'sub', server: 'anime' })}
+        >
+          Anime: AoT (Sub)
+        </button>
+        <button
+          className="preset-chip"
+          onClick={() => applyPreset({ type: 'anime', id: '113415', episode: 1, lang: 'dub', server: 'anime' })}
+        >
+          Anime: JJK (Dub)
+        </button>
+        <button
+          className="preset-chip"
+          onClick={() => applyPreset({ type: 'trailer', trailerKey: 'uYPbbksJxIg' })}
+        >
+          Trailer: Oppenheimer
         </button>
       </div>
 
@@ -189,16 +212,16 @@ export default function CustomStreamLauncher({ onLaunchStream }) {
           </div>
         </div>
 
-        {/* Server Selector (if movie or tv) */}
-        {(mediaType === 'movie' || mediaType === 'tv') && (
+        {/* Server Selector */}
+        {mediaType !== 'trailer' && (
           <div className="form-group">
-            <label className="form-label">Select Server (1 to 6):</label>
+            <label className="form-label">Select Server:</label>
             <select
               value={selectedServer}
               onChange={(e) => setSelectedServer(e.target.value)}
               className="form-select"
             >
-              {STREAM_SERVERS.filter(s => s.id !== 'anime').map(s => (
+              {STREAM_SERVERS.map(s => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.tag})
                 </option>

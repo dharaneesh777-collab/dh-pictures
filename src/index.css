@@ -822,6 +822,105 @@ body {
   cursor: pointer;
 }
 
+.selector-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.jump-episode-form {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.45rem;
+}
+
+.jump-episode-input {
+  width: 80px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 0.78rem;
+}
+
+.jump-episode-btn {
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jump-episode-btn:hover {
+  opacity: 0.9;
+}
+
+.episode-chunks-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.chunks-label {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chunks-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.chunk-pill {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.chunk-pill:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.chunk-pill.active {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #6366f1;
+  color: #a5b4fc;
+}
+
+.trailer-tag {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+.btn-control.btn-close-player:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
 .episodes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
