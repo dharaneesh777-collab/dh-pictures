@@ -1,44 +1,53 @@
 import React from 'react';
 import { Play, Film, Star, Heart } from 'lucide-react';
 
+const TMDB_FALLBACK_POSTER = 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg';
+
 export default function MediaCard({
   item,
   onPlay,
   onOpenTrailer,
   isFavorite,
-  onToggleFavorite
+  onToggleFavorite,
+  showBadge = false
 }) {
   const isHindi = item.isHindi || item.preferredServer === 'server6';
   const isAnime = item.type === 'anime';
+
+  // Format type and year in Flixeo style: e.g. "Movie • 2026" or "TV • 2024"
+  const typeLabel = isAnime ? 'Anime' : item.type === 'tv' ? 'TV' : 'Movie';
+  const yearLabel = item.year ? String(item.year).split('-')[0] : '2024';
 
   return (
     <div className="media-card" onClick={() => onPlay(item)}>
       <div className="card-poster-wrap">
         <img
-          src={item.poster}
+          src={item.poster || TMDB_FALLBACK_POSTER}
           alt={item.title}
           loading="lazy"
           className="card-poster"
           onError={(e) => {
             e.target.onerror = null;
-            e.target.src = 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80';
+            e.target.src = TMDB_FALLBACK_POSTER;
           }}
         />
 
-        <div className="card-badge-wrap">
-          {item.rating && (
-            <span className="card-rating-badge">
-              <Star size={12} fill="currentColor" />
-              <span>{item.rating}</span>
-            </span>
-          )}
+        {/* Badges - shown only when explicitly enabled */}
+        {showBadge && (
+          <div className="card-badge-wrap">
+            {item.rating && (
+              <span className="card-rating-badge">
+                <Star size={11} fill="currentColor" />
+                <span>{item.rating}</span>
+              </span>
+            )}
 
-          {isHindi && <span className="card-lang-badge hindi">Hindi</span>}
-          {isAnime && <span className="card-lang-badge anime">Anime</span>}
-          {item.type === 'tv' && !isAnime && <span className="card-lang-badge tv">TV Series</span>}
-        </div>
+            {isHindi && <span className="card-lang-badge hindi">Hindi</span>}
+            {isAnime && <span className="card-lang-badge anime">Anime</span>}
+          </div>
+        )}
 
-        {/* Hover Actions Overlay */}
+        {/* Flixeo Hover Actions Overlay */}
         <div className="card-hover-overlay">
           <button 
             className="card-play-btn"
@@ -48,7 +57,7 @@ export default function MediaCard({
               onPlay(item);
             }}
           >
-            <Play size={22} fill="currentColor" />
+            <Play size={20} fill="currentColor" />
           </button>
 
           <div className="card-action-bar">
@@ -61,7 +70,7 @@ export default function MediaCard({
                   onOpenTrailer(item.trailerKey, item.title);
                 }}
               >
-                <Film size={15} />
+                <Film size={14} />
               </button>
             )}
 
@@ -73,7 +82,7 @@ export default function MediaCard({
                 onToggleFavorite(item);
               }}
             >
-              <Heart size={15} fill={isFavorite ? 'currentColor' : 'none'} />
+              <Heart size={14} fill={isFavorite ? 'currentColor' : 'none'} />
             </button>
           </div>
         </div>
@@ -82,10 +91,7 @@ export default function MediaCard({
       <div className="card-meta">
         <h4 className="card-title" title={item.title}>{item.title}</h4>
         <div className="card-sub-info">
-          <span>{item.year || '2024'}</span>
-          {item.genres && item.genres[0] && (
-            <span className="card-genre-dot">• {item.genres[0]}</span>
-          )}
+          <span>{typeLabel} • {yearLabel}</span>
         </div>
       </div>
     </div>

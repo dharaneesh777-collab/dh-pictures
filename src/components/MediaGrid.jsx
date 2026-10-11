@@ -46,6 +46,7 @@ export default function MediaGrid({
               onOpenTrailer={onOpenTrailer}
               isFavorite={isFav}
               onToggleFavorite={onToggleFavorite}
+              showBadge={true}
             />
           );
         })}

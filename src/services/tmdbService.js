@@ -4,7 +4,7 @@
  * and provides fallbacks to curated datasets.
  */
 
-import { CURATED_MOVIES, TV_SHOWS, HINDI_CINEMA, ANIME_CATALOG } from './catalogData';
+import { CURATED_MOVIES, TV_SHOWS, HINDI_CINEMA, ANIME_CATALOG, RECOMMENDED_TITLES } from './catalogData';
 
 export async function searchTMDB(query, apiKey = '') {
   if (!query || !query.trim()) return [];
@@ -28,7 +28,7 @@ export async function searchTMDB(query, apiKey = '') {
             year: (item.release_date || item.first_air_date || '').substring(0, 4),
             rating: item.vote_average ? item.vote_average.toFixed(1) : '7.5',
             genres: [],
-            poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+            poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
             backdrop: item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : null,
             overview: item.overview || 'No synopsis provided.',
             trailerKey: null,
@@ -41,8 +41,8 @@ export async function searchTMDB(query, apiKey = '') {
     }
   }
 
-  // Fallback to searching our curated catalog of Movies, TV, Hindi cinema and Anime
-  const allCurated = [...CURATED_MOVIES, ...TV_SHOWS, ...HINDI_CINEMA, ...ANIME_CATALOG];
+  // Fallback to searching our curated catalog of Movies, TV, Hindi cinema, Anime and Recommended
+  const allCurated = [...RECOMMENDED_TITLES, ...CURATED_MOVIES, ...TV_SHOWS, ...HINDI_CINEMA, ...ANIME_CATALOG];
   return allCurated.filter(item => 
     item.title.toLowerCase().includes(cleanQuery) ||
     item.genres.some(g => g.toLowerCase().includes(cleanQuery)) ||

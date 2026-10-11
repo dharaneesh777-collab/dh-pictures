@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import HeroBanner from './components/HeroBanner';
 import VideoPlayer from './components/VideoPlayer';
 import MediaGrid from './components/MediaGrid';
+import RecommendedSection from './components/RecommendedSection';
+import TopFiveSidebar from './components/TopFiveSidebar';
+import PlatformBar from './components/PlatformBar';
 import CustomStreamLauncher from './components/CustomStreamLauncher';
 import TrailerModal from './components/TrailerModal';
 import SettingsModal from './components/SettingsModal';
@@ -10,6 +13,7 @@ import WatchHistory from './components/WatchHistory';
 
 import { 
   FEATURED_HERO, 
+  RECOMMENDED_TITLES,
   CURATED_MOVIES, 
   TV_SHOWS, 
   HINDI_CINEMA, 
@@ -18,6 +22,8 @@ import {
 import { searchAniList } from './services/anilistService';
 import { searchTMDB } from './services/tmdbService';
 import { STREAM_SERVERS } from './services/streamServers';
+
+const TMDB_FALLBACK_POSTER = 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg';
 
 export default function App() {
   // Saved Settings
@@ -164,7 +170,7 @@ export default function App() {
   };
 
   // Search handler
-  const handleSearch = async (query = searchQuery) => {
+  const handleSearch = useCallback(async (query = searchQuery) => {
     const trimmed = query.trim();
     if (!trimmed) {
       setSearchResults([]);
@@ -185,9 +191,10 @@ export default function App() {
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [searchQuery, settings.tmdbApiKey]);
 
   // Deep linking: read URL query params on mount
+  // oxlint-disable-next-line react/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const type = params.get('type');
@@ -205,8 +212,13 @@ export default function App() {
 
     if (id) {
       // Find matching item or construct dynamic one
-      let found = [...CURATED_MOVIES, ...TV_SHOWS, ...HINDI_CINEMA, ...ANIME_CATALOG]
-        .find(i => String(i.id) === String(id) || String(i.anilistId) === String(id));
+      let found = [
+        ...RECOMMENDED_TITLES, 
+        ...CURATED_MOVIES, 
+        ...TV_SHOWS, 
+        ...HINDI_CINEMA, 
+        ...ANIME_CATALOG
+      ].find(i => String(i.id) === String(id) || String(i.anilistId) === String(id));
 
       if (!found) {
         found = {
@@ -214,7 +226,7 @@ export default function App() {
           anilistId: type === 'anime' ? id : undefined,
           type: type || 'movie',
           title: `${type?.toUpperCase() || 'Media'} #${id}`,
-          poster: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+          poster: TMDB_FALLBACK_POSTER,
           seasons: [{ seasonNumber: s, episodesCount: 24 }]
         };
       }
@@ -226,6 +238,7 @@ export default function App() {
         language: lang
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Bi-directional URL synchronization
@@ -262,7 +275,7 @@ export default function App() {
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery, settings.tmdbApiKey]);
+  }, [searchQuery, handleSearch]);
 
   return (
     <div className="app-layout">
@@ -328,7 +341,31 @@ export default function App() {
           </div>
         ) : (
           <>
-            {/* If no active video playing and tab is 'all', show Spotlight Hero Banner */}
+            {/* Flixeo Streaming Platform quick-filter bar */}
+            {(activeTab === 'all' || activeTab === 'trending') && (
+              <PlatformBar />
+            )}
+
+            {/* Flixeo Home Layout (Recommended Grid + TOP 5 Sidebar) */}
+            {(activeTab === 'all' || activeTab === 'trending') && (
+              <div className="flixeo-home-layout">
+                <div className="flixeo-main-col">
+                  <RecommendedSection
+                    onPlay={handlePlayMedia}
+                    onOpenTrailer={handleOpenTrailer}
+                    favorites={watchlist}
+                    onToggleFavorite={handleToggleFavorite}
+                  />
+                </div>
+                <div className="flixeo-side-col">
+                  <TopFiveSidebar
+                    onPlay={handlePlayMedia}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Spotlight Hero Banner (Featured Title) */}
             {!isPlaying && activeTab === 'all' && (
               <HeroBanner
                 item={FEATURED_HERO}
@@ -436,7 +473,7 @@ export default function App() {
       <footer className="footer-wrap">
         <div className="footer-container">
           <div className="footer-info">
-            <span className="footer-brand">STREAMVERSE</span>
+            <span className="footer-brand">DH PICTURES</span>
             <p className="footer-desc">
               Universal multi-server streaming frontend with support for VixSrc, VidCore, VidSrc, Vidy, MoviesAPI, Screenscape Hindi, Megaplay Anime, and YouTube Trailers.
             </p>
