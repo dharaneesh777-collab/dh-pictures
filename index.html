@@ -13,6 +13,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect !== location.href) {
+          try {
+            var url = new URL(redirect);
+            if (url.search || url.hash) {
+              history.replaceState(null, null, location.pathname + url.search + url.hash);
+            }
+          } catch (e) {}
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

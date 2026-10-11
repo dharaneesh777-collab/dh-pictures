@@ -29,7 +29,7 @@ export default function App() {
   // Saved Settings
   const [settings, setSettings] = useState(() => {
     try {
-      const saved = localStorage.getItem('streamverse_settings');
+      const saved = localStorage.getItem('dhpictures_settings') || localStorage.getItem('streamverse_settings');
       return saved ? JSON.parse(saved) : {
         tmdbApiKey: '',
         defaultServer: 'server1',
@@ -44,7 +44,7 @@ export default function App() {
   // Watchlist & History
   const [watchlist, setWatchlist] = useState(() => {
     try {
-      const saved = localStorage.getItem('streamverse_watchlist');
+      const saved = localStorage.getItem('dhpictures_watchlist') || localStorage.getItem('streamverse_watchlist');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -53,7 +53,7 @@ export default function App() {
 
   const [history, setHistory] = useState(() => {
     try {
-      const saved = localStorage.getItem('streamverse_history');
+      const saved = localStorage.getItem('dhpictures_history') || localStorage.getItem('streamverse_history');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -81,15 +81,15 @@ export default function App() {
 
   // Sync to localStorage
   useEffect(() => {
-    localStorage.setItem('streamverse_settings', JSON.stringify(settings));
+    localStorage.setItem('dhpictures_settings', JSON.stringify(settings));
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem('streamverse_watchlist', JSON.stringify(watchlist));
+    localStorage.setItem('dhpictures_watchlist', JSON.stringify(watchlist));
   }, [watchlist]);
 
   useEffect(() => {
-    localStorage.setItem('streamverse_history', JSON.stringify(history));
+    localStorage.setItem('dhpictures_history', JSON.stringify(history));
   }, [history]);
 
   // Trailer modal handler

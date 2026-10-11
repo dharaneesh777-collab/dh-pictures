@@ -44,6 +44,7 @@ describe('DH PICTURES Brand Identity & Configuration Verification', () => {
     const pkgPath = path.join(rootDir, 'package.json');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
     expect(pkg.name).toBe('dh-pictures');
+    expect(pkg.scripts.test).toBe('vitest run');
 
     const viteConfigPath = path.join(rootDir, 'vite.config.js');
     const viteContent = fs.readFileSync(viteConfigPath, 'utf-8');
@@ -57,5 +58,19 @@ describe('DH PICTURES Brand Identity & Configuration Verification', () => {
 
     const vercelConfigPath = path.join(rootDir, 'vercel.json');
     expect(fs.existsSync(vercelConfigPath)).toBe(true);
+
+    const noJekyllPath = path.join(rootDir, 'public/.nojekyll');
+    expect(fs.existsSync(noJekyllPath)).toBe(true);
+
+    expect(pkg.scripts.deploy).toBe('gh-pages -d dist');
+  });
+
+  it('App.jsx uses dhpictures namespace for localStorage persistence', () => {
+    const appPath = path.join(rootDir, 'src/App.jsx');
+    const appContent = fs.readFileSync(appPath, 'utf-8');
+
+    expect(appContent).toContain('dhpictures_settings');
+    expect(appContent).toContain('dhpictures_watchlist');
+    expect(appContent).toContain('dhpictures_history');
   });
 });

@@ -1,5 +1,5 @@
 /**
- * StreamVerse - Multi-Server Streaming Architecture
+ * DH PICTURES - Multi-Server Streaming Architecture
  * 
  * Configured API Endpoints:
  * Server 1: https://vixsrc.to/movie/${id} | https://vixsrc.to/tv/${id}/${season}/${episode}

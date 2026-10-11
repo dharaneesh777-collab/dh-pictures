@@ -8,7 +8,7 @@ A high-performance, dark-mode streaming web application built with React, Vite, 
 
 DH PICTURES is configured for 1-click free static hosting:
 
-- **GitHub Pages**: Automated CI/CD workflow included in `.github/workflows/deploy.yml`. Automatically builds and deploys on push to `master`.
+- **GitHub Pages**: Live at `https://dharaneesh777-collab.github.io/dh-pictures/`. Deployed via `npm run deploy` (`gh-pages` branch) with SPA 404 routing fallback and `.nojekyll`.
 - **Vercel**: Preconfigured with `vercel.json` SPA client-side rewrite rules.
 - **Netlify / Cloudflare Pages**: Preconfigured with `public/_redirects` and `public/404.html`.
 
@@ -72,11 +72,15 @@ npm run build
 
 ## Deployment Instructions
 
-### Option 1: GitHub Pages (Automatic)
-1. Go to repository **Settings** -> **Pages**.
-2. Under **Build and deployment** -> **Source**, select **GitHub Actions**.
-3. Push to `master` (or trigger the workflow manually under **Actions**).
-4. Your site will be live at `https://<username>.github.io/<repo-name>/`.
+### Option 1: GitHub Pages (Live)
+The project is published to GitHub Pages from the `gh-pages` branch:
+1. Live URL: `https://dharaneesh777-collab.github.io/dh-pictures/`
+2. To re-deploy anytime after making changes:
+   ```bash
+   npm run deploy
+   ```
+   (This builds the latest production bundle with `.nojekyll` and publishes to the `gh-pages` branch).
+3. If using GitHub Actions instead, ensure your GitHub token has `workflow` scope enabled under Settings -> Developer settings -> Personal access tokens.
 
 ### Option 2: Vercel
 1. Import your GitHub repository into [Vercel](https://vercel.com).
