@@ -6,8 +6,12 @@
   <script>
     // GitHub Pages 404 redirection for SPA
     sessionStorage.redirect = location.href;
+    var path = location.pathname;
+    var segments = path.split('/').filter(Boolean);
+    // If hosted on https://<user>.github.io/<repo>/, segments[0] is <repo>
+    var repoPrefix = segments.length > 0 ? '/' + segments[0] + '/' : '/';
+    location.replace(repoPrefix + (location.search || '') + (location.hash || ''));
   </script>
-  <meta http-equiv="refresh" content="0;URL='./'">
 </head>
 <body>
 </body>
