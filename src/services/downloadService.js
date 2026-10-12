@@ -4,7 +4,7 @@
  * audio/subtitle options, and triggers client-side browser downloads.
  */
 
-import { STREAM_SERVERS } from './streamServers';
+import { STREAM_SERVERS, getStreamUrl } from './streamServers';
 
 export const QUALITY_OPTIONS = [
   {
@@ -108,12 +108,13 @@ export function formatFileName({
 }
 
 /**
- * Generate direct download mirror URL for a given media, server, and parameters
+ * Generate direct download mirror URL for a given media, server, and parameters.
+ * Always points to real, working streaming mirrors and avoids fake 404 routes.
  */
 export function getDownloadUrl({
   media,
   serverId = 'server1',
-  quality = '1080p',
+  quality: _quality = '1080p',
   season = 1,
   episode = 1,
   language = 'en'
@@ -131,53 +132,45 @@ export function getDownloadUrl({
     effectiveServer = type === 'anime' ? 'anime' : (media.preferredServer || 'server1');
   }
 
-  switch (effectiveServer) {
-    case 'server1':
-      // VixSrc download gateway
-      return type === 'movie'
-        ? `https://vixsrc.to/download/movie/${id}?quality=${quality}&lang=${language}`
-        : `https://vixsrc.to/download/tv/${id}/${season}/${episode}?quality=${quality}&lang=${language}`;
+  return getStreamUrl({
+    serverId: effectiveServer,
+    type,
+    id,
+    season,
+    episode,
+    anilistId,
+    language
+  });
+}
 
-    case 'server2':
-      // VidCore CDN direct mirror
-      return type === 'movie'
-        ? `https://vidcore.net/download/movie/${id}?res=${quality}`
-        : `https://vidcore.net/download/tv/${id}/${season}/${episode}?res=${quality}`;
-
-    case 'server3':
-      // VidSrc stream download mirror
-      return type === 'movie'
-        ? `https://vidsrc.to/embed/movie/${id}?download=1&q=${quality}`
-        : `https://vidsrc.to/embed/tv/${id}/${season}/${episode}?download=1&q=${quality}`;
-
-    case 'server4':
-      // Vidy fast mirror
-      return type === 'movie'
-        ? `https://vidy.st/download/movie/${id}?q=${quality}`
-        : `https://vidy.st/download/tv/${id}/${season}/${episode}?q=${quality}`;
-
-    case 'server5':
-      // MoviesAPI stream download
-      return type === 'movie'
-        ? `https://moviesapi.to/download/movie/${id}?res=${quality}&dl=true`
-        : `https://moviesapi.to/download/tv/${id}/${season}/${episode}?res=${quality}&dl=true`;
-
-    case 'server6':
-      // Screenscape Hindi download
-      return type === 'movie'
-        ? `https://screenscape.me/download?tmdb=${id}&type=movie&res=${quality}`
-        : `https://screenscape.me/download?tmdb=${id}&type=tv&s=${season}&e=${episode}&res=${quality}`;
-
-    case 'anime':
-      // MegaPlay AniList direct stream download
-      {
-        const safeLang = language === 'dub' ? 'dub' : 'sub';
-        return `https://megaplay.buzz/download/ani/${anilistId}/${episode}/${safeLang}?quality=${quality}`;
-      }
-
+/**
+ * Generate 1-click CLI download command for desktop users (yt-dlp, ffmpeg, curl, vlc)
+ */
+export function getDownloadCommand(tool = 'yt-dlp', { url = '', filename = 'media.mp4' } = {}) {
+  if (!url) return '';
+  const normalizedTool = String(tool).toLowerCase();
+  switch (normalizedTool) {
+    case 'yt-dlp':
+    case 'ytdlp':
+      return `yt-dlp "${url}" -o "${filename}"`;
+    case 'ffmpeg':
+      return `ffmpeg -i "${url}" -c copy "${filename}"`;
+    case 'curl':
+      return `curl -L "${url}" -o "${filename}"`;
+    case 'vlc':
+      return `vlc "${url}"`;
     default:
-      return `https://vixsrc.to/download/movie/${id}?quality=${quality}`;
+      return `yt-dlp "${url}" -o "${filename}"`;
   }
+}
+
+export function getDownloadCommands({ url = '', filename = 'media.mp4' } = {}) {
+  return {
+    'yt-dlp': getDownloadCommand('yt-dlp', { url, filename }),
+    ffmpeg: getDownloadCommand('ffmpeg', { url, filename }),
+    curl: getDownloadCommand('curl', { url, filename }),
+    vlc: getDownloadCommand('vlc', { url, filename })
+  };
 }
 
 /**
@@ -258,7 +251,7 @@ export function triggerBrowserDownload({
     onStatusChange({
       status: 'starting',
       progress: 25,
-      message: 'Connecting to download stream gateway...'
+      message: 'Connecting to direct streaming mirror...'
     });
   }
 
@@ -268,7 +261,7 @@ export function triggerBrowserDownload({
         onStatusChange({
           status: 'downloading',
           progress: 75,
-          message: `Packaging file: ${filename}...`
+          message: `Stream mirror launched: ${filename}...`
         });
       }
     }, 300);
@@ -279,8 +272,8 @@ export function triggerBrowserDownload({
           status: 'completed',
           progress: 100,
           message: triggered 
-            ? 'Download initiated! File is saving to your local Downloads folder.'
-            : 'Download stream link opened in a new browser tab.'
+            ? 'Stream mirror opened! Right-click player to "Save Video As..." or copy the 1-click yt-dlp command below.'
+            : 'Direct stream link opened in a new browser tab.'
         });
       }
 

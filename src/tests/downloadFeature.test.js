@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   formatFileName,
   getDownloadUrl,
+  getDownloadCommand,
+  getDownloadCommands,
   getAvailableDownloadServers,
   getEstimatedSize,
   QUALITY_OPTIONS,
@@ -51,44 +53,85 @@ describe('Download Service & Link Builder Tests', () => {
     const mockTv = { id: '1396', title: 'Breaking Bad', type: 'tv' };
     const mockAnime = { id: '16498', anilistId: '16498', title: 'Attack on Titan', type: 'anime' };
 
-    it('generates Server 1 (VixSrc) movie and TV download endpoints', () => {
+    it('generates Server 1 (VixSrc) movie and TV stream endpoints without fake download routes', () => {
       expect(getDownloadUrl({ media: mockMovie, serverId: 'server1', quality: '1080p', language: 'en' }))
-        .toBe('https://vixsrc.to/download/movie/872585?quality=1080p&lang=en');
+        .toBe('https://vixsrc.to/movie/872585');
 
       expect(getDownloadUrl({ media: mockTv, serverId: 'server1', quality: '720p', season: 2, episode: 4, language: 'en' }))
-        .toBe('https://vixsrc.to/download/tv/1396/2/4?quality=720p&lang=en');
+        .toBe('https://vixsrc.to/tv/1396/2/4');
     });
 
-    it('generates Server 2 (VidCore) CDN mirror endpoints', () => {
+    it('generates Server 2 (VidCore) CDN mirror endpoints without 404 paths', () => {
       expect(getDownloadUrl({ media: mockMovie, serverId: 'server2', quality: '1080p' }))
-        .toBe('https://vidcore.net/download/movie/872585?res=1080p');
+        .toBe('https://vidcore.net/movie/872585');
 
       expect(getDownloadUrl({ media: mockTv, serverId: 'server2', quality: '480p', season: 1, episode: 1 }))
-        .toBe('https://vidcore.net/download/tv/1396/1/1?res=480p');
+        .toBe('https://vidcore.net/tv/1396/1/1');
     });
 
     it('generates Server 3 (VidSrc) download portal endpoints', () => {
       expect(getDownloadUrl({ media: mockMovie, serverId: 'server3', quality: '1080p' }))
-        .toBe('https://vidsrc.to/embed/movie/872585?download=1&q=1080p');
+        .toBe('https://vidsrc.to/embed/movie/872585');
 
       expect(getDownloadUrl({ media: mockTv, serverId: 'server3', quality: '720p', season: 3, episode: 5 }))
-        .toBe('https://vidsrc.to/embed/tv/1396/3/5?download=1&q=720p');
+        .toBe('https://vidsrc.to/embed/tv/1396/3/5');
     });
 
     it('generates Server 6 (Screenscape Hindi) Indian cinema endpoints', () => {
       expect(getDownloadUrl({ media: mockMovie, serverId: 'server6', quality: '1080p' }))
-        .toBe('https://screenscape.me/download?tmdb=872585&type=movie&res=1080p');
+        .toBe('https://screenscape.me/embed?tmdb=872585&type=movie');
 
       expect(getDownloadUrl({ media: mockTv, serverId: 'server6', quality: '720p', season: 1, episode: 2 }))
-        .toBe('https://screenscape.me/download?tmdb=1396&type=tv&s=1&e=2&res=720p');
+        .toBe('https://screenscape.me/embed?tmdb=1396&type=tv&s=1&e=2');
     });
 
-    it('generates Anime Server (MegaPlay Buzz) sub/dub download endpoints', () => {
+    it('generates Anime Server (MegaPlay Buzz) sub/dub stream endpoints', () => {
       expect(getDownloadUrl({ media: mockAnime, serverId: 'anime', quality: '1080p', episode: 1, language: 'sub' }))
-        .toBe('https://megaplay.buzz/download/ani/16498/1/sub?quality=1080p');
+        .toBe('https://megaplay.buzz/stream/ani/16498/1/sub');
 
       expect(getDownloadUrl({ media: mockAnime, serverId: 'anime', quality: '720p', episode: 12, language: 'dub' }))
-        .toBe('https://megaplay.buzz/download/ani/16498/12/dub?quality=720p');
+        .toBe('https://megaplay.buzz/stream/ani/16498/12/dub');
+    });
+
+    it('never generates fake /download/ paths that cause 404 errors', () => {
+      const movieUrl = getDownloadUrl({ media: mockMovie, serverId: 'server2', quality: '1080p' });
+      expect(movieUrl).not.toContain('/download/');
+      expect(movieUrl).not.toContain('vidcore.io');
+      expect(movieUrl).toBe('https://vidcore.net/movie/872585');
+    });
+  });
+
+  describe('Desktop CLI Download Commands', () => {
+    const testUrl = 'https://vidcore.net/movie/969681';
+    const testFilename = 'Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4';
+
+    it('generates valid yt-dlp command with output destination', () => {
+      const cmd = getDownloadCommand('yt-dlp', { url: testUrl, filename: testFilename });
+      expect(cmd).toBe(`yt-dlp "${testUrl}" -o "${testFilename}"`);
+    });
+
+    it('generates valid ffmpeg copy stream command', () => {
+      const cmd = getDownloadCommand('ffmpeg', { url: testUrl, filename: testFilename });
+      expect(cmd).toBe(`ffmpeg -i "${testUrl}" -c copy "${testFilename}"`);
+    });
+
+    it('generates valid curl and vlc commands', () => {
+      expect(getDownloadCommand('curl', { url: testUrl, filename: testFilename }))
+        .toBe(`curl -L "${testUrl}" -o "${testFilename}"`);
+      expect(getDownloadCommand('vlc', { url: testUrl, filename: testFilename }))
+        .toBe(`vlc "${testUrl}"`);
+    });
+
+    it('provides getDownloadCommands dictionary for all tools', () => {
+      const cmds = getDownloadCommands({ url: testUrl, filename: testFilename });
+      expect(cmds['yt-dlp']).toContain('yt-dlp');
+      expect(cmds.ffmpeg).toContain('ffmpeg');
+      expect(cmds.curl).toContain('curl');
+      expect(cmds.vlc).toContain('vlc');
+    });
+
+    it('returns empty string if url is missing', () => {
+      expect(getDownloadCommand('yt-dlp', { url: '' })).toBe('');
     });
   });
 
@@ -169,7 +212,7 @@ describe('Download Service & Link Builder Tests', () => {
 
     it('falls back from trailer server to default streaming mirror', () => {
       const url = getDownloadUrl({ media: mockMovie, serverId: 'trailer', quality: '1080p' });
-      expect(url).toContain('https://vixsrc.to/download/movie/872585');
+      expect(url).toBe('https://vixsrc.to/movie/872585');
     });
   });
 
@@ -185,7 +228,7 @@ describe('Download Service & Link Builder Tests', () => {
       const onStatusChange = (status) => statusUpdates.push(status);
 
       const downloadPromise = triggerBrowserDownload({
-        url: 'https://vixsrc.to/download/movie/123?quality=1080p',
+        url: 'https://vixsrc.to/movie/123',
         filename: 'Test.Movie.1080P.mp4',
         onStatusChange
       });

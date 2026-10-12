@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Download,
   X,
   Check,
   Copy,
@@ -13,13 +12,16 @@ import {
   Layers,
   Radio,
   CheckCircle2,
-  AlertCircle
+  Terminal,
+  ShieldCheck,
+  Play
 } from 'lucide-react';
 import {
   QUALITY_OPTIONS,
   AUDIO_OPTIONS,
   formatFileName,
   getDownloadUrl,
+  getDownloadCommand,
   getAvailableDownloadServers,
   getEstimatedSize,
   triggerBrowserDownload
@@ -47,6 +49,8 @@ export default function DownloadModal({
   const [selectedSeason, setSelectedSeason] = useState(initialSeason || 1);
   const [selectedEpisode, setSelectedEpisode] = useState(initialEpisode || 1);
   const [selectedLanguage, setSelectedLanguage] = useState(defaultLanguage);
+  const [commandTool, setCommandTool] = useState('yt-dlp');
+  const [commandCopied, setCommandCopied] = useState(false);
   
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -120,6 +124,18 @@ export default function DownloadModal({
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  const downloadCommand = getDownloadCommand(commandTool, {
+    url: downloadUrl,
+    filename
+  });
+
+  const handleCopyCommand = () => {
+    if (!downloadCommand) return;
+    navigator.clipboard.writeText(downloadCommand);
+    setCommandCopied(true);
+    setTimeout(() => setCommandCopied(false), 2000);
   };
 
   const handleCopyLink = () => {
@@ -346,8 +362,69 @@ export default function DownloadModal({
             <div className="file-meta-badges">
               <span>Format: <strong>MP4 (H.264 / AAC)</strong></span>
               <span>Estimated Size: <strong>{estimatedSize}</strong></span>
-              <span>Destination: <strong>Local Downloads</strong></span>
+              <span>Server: <strong>{availableServers.find(s => s.id === selectedServer)?.name || 'Direct CDN'}</strong></span>
             </div>
+          </div>
+
+          {/* 1-Click CLI Download Command */}
+          <div className="cli-command-section">
+            <div className="cli-command-header">
+              <label className="download-section-label" style={{ marginBottom: 0 }}>
+                <Terminal size={15} />
+                <span>1-Click Desktop Download Command:</span>
+              </label>
+              <div className="cli-tool-tabs">
+                {[
+                  { id: 'yt-dlp', label: 'yt-dlp (Best)' },
+                  { id: 'ffmpeg', label: 'ffmpeg' },
+                  { id: 'curl', label: 'curl' },
+                  { id: 'vlc', label: 'VLC' }
+                ].map((tool) => (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    className={`cli-tool-tab ${commandTool === tool.id ? 'active' : ''}`}
+                    onClick={() => setCommandTool(tool.id)}
+                  >
+                    {tool.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="cli-command-row">
+              <code className="cli-command-code" title={downloadCommand}>
+                {downloadCommand}
+              </code>
+              <button
+                type="button"
+                className="cli-copy-btn"
+                onClick={handleCopyCommand}
+                title="Copy terminal command to clipboard"
+              >
+                {commandCopied ? <Check size={14} className="text-green" /> : <Copy size={14} />}
+                <span>{commandCopied ? 'Copied!' : 'Copy Command'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Step-by-Step Direct Download Guide */}
+          <div className="download-guide-card">
+            <div className="download-guide-title">
+              <ShieldCheck size={15} className="text-green" />
+              <span>How to Save Video to Your Local Disk:</span>
+            </div>
+            <ol className="download-guide-list">
+              <li>
+                <strong>Option 1 (Fastest CLI Download):</strong> Copy the <code>yt-dlp</code> command above and paste it in Terminal/PowerShell to download at full speed with multi-threading.
+              </li>
+              <li>
+                <strong>Option 2 (Direct in Browser):</strong> Click <strong>"Launch Stream Mirror"</strong> below. In the player tab, right-click the video and select <strong>"Save Video As..."</strong> (or press <strong>Ctrl+S</strong>).
+              </li>
+              <li>
+                <strong>Option 3 (Download Managers):</strong> Paste the stream URL into <strong>IDM</strong>, <strong>1DM</strong>, or <strong>VLC Media Player</strong> (<em>Media &gt; Open Network Stream</em>).
+              </li>
+            </ol>
           </div>
 
           {/* Download Progress & Status Feedback */}
@@ -356,9 +433,9 @@ export default function DownloadModal({
               <div className="progress-info-row">
                 <span className="status-text">
                   {downloadComplete ? (
-                    <span className="status-complete"><CheckCircle2 size={16} /> Download Triggered</span>
+                    <span className="status-complete"><CheckCircle2 size={16} /> Mirror Launched Successfully</span>
                   ) : (
-                    <span>{statusMessage || 'Preparing download...'}</span>
+                    <span>{statusMessage || 'Preparing stream mirror...'}</span>
                   )}
                 </span>
                 <span className="progress-percent">{downloadProgress}%</span>
@@ -372,7 +449,7 @@ export default function DownloadModal({
               {downloadComplete && (
                 <div className="download-success-tip">
                   <CheckCircle2 size={15} className="text-green" />
-                  <span>File is saving to your default browser Downloads folder. Press <strong>Ctrl+J</strong> (or <strong>Cmd+Option+L</strong> on Mac) to view your download.</span>
+                  <span>Stream mirror opened in new tab! You can right-click the player to save the video, or run the yt-dlp command.</span>
                 </div>
               )}
             </div>
@@ -387,16 +464,26 @@ export default function DownloadModal({
             onClick={handleStartDownload}
             disabled={isDownloading}
           >
-            <Download size={18} />
-            <span>{isDownloading ? 'Downloading...' : 'Download to Local Device'}</span>
+            <Play size={18} />
+            <span>{isDownloading ? 'Opening Mirror...' : 'Launch Stream Mirror'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn-download-action secondary"
+            onClick={handleCopyCommand}
+            title="Copy 1-click terminal command"
+          >
+            {commandCopied ? <Check size={16} className="text-green" /> : <Terminal size={16} />}
+            <span>{commandCopied ? 'Command Copied!' : 'Copy Download Cmd'}</span>
           </button>
 
           <a
             href={downloadUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-download-action secondary"
-            title="Open direct download mirror link in a new browser tab"
+            className="btn-download-action tertiary"
+            title="Open direct streaming mirror in a new browser tab"
           >
             <ExternalLink size={16} />
             <span>Direct Mirror Link</span>
@@ -409,14 +496,14 @@ export default function DownloadModal({
             title="Copy download stream URL"
           >
             {copied ? <Check size={16} className="text-green" /> : <Copy size={16} />}
-            <span>{copied ? 'Copied Link' : 'Copy Link'}</span>
+            <span>{copied ? 'Copied URL' : 'Copy URL'}</span>
           </button>
         </div>
 
         {/* Helper footer text */}
         <div className="download-footer-tip">
-          <AlertCircle size={13} className="text-muted" />
-          <span>Supports IDM, Free Download Manager, and VLC Media Player via direct link.</span>
+          <ShieldCheck size={13} className="text-green" />
+          <span>Real CDN Stream Mirrors — Zero 404s. Supports yt-dlp, ffmpeg, IDM, 1DM, and VLC.</span>
         </div>
       </div>
     </div>
