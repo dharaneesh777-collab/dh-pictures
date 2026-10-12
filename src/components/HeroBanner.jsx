@@ -1,7 +1,7 @@
 import React from 'react';
-import { Play, Film, Star, Clock } from 'lucide-react';
+import { Play, Film, Star, Clock, Download } from 'lucide-react';
 
-export default function HeroBanner({ item, onPlay, onOpenTrailer }) {
+export default function HeroBanner({ item, onPlay, onOpenTrailer, onDownload }) {
   if (!item) return null;
 
   return (
@@ -51,6 +51,16 @@ export default function HeroBanner({ item, onPlay, onOpenTrailer }) {
             <Play size={20} fill="currentColor" />
             <span>Watch Now</span>
           </button>
+
+          {onDownload && (
+            <button
+              className="hero-btn-download"
+              onClick={() => onDownload(item)}
+            >
+              <Download size={18} />
+              <span>Download</span>
+            </button>
+          )}
 
           {item.trailerKey && (
             <button 

@@ -9,7 +9,8 @@ export default function MediaGrid({
   onOpenTrailer,
   favorites = [],
   onToggleFavorite,
-  emptyMessage
+  emptyMessage,
+  onDownload
 }) {
   if (!items || items.length === 0) {
     if (!emptyMessage) return null;
@@ -47,6 +48,7 @@ export default function MediaGrid({
               isFavorite={isFav}
               onToggleFavorite={onToggleFavorite}
               showBadge={true}
+              onDownload={onDownload}
             />
           );
         })}

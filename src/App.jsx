@@ -8,6 +8,7 @@ import TopFiveSidebar from './components/TopFiveSidebar';
 import PlatformBar from './components/PlatformBar';
 import CustomStreamLauncher from './components/CustomStreamLauncher';
 import TrailerModal from './components/TrailerModal';
+import DownloadModal from './components/DownloadModal';
 import SettingsModal from './components/SettingsModal';
 import WatchHistory from './components/WatchHistory';
 
@@ -77,6 +78,14 @@ export default function App() {
 
   // Modals state
   const [trailerModal, setTrailerModal] = useState({ isOpen: false, trailerKey: '', title: '' });
+  const [downloadModal, setDownloadModal] = useState({
+    isOpen: false,
+    media: null,
+    season: 1,
+    episode: 1,
+    language: 'en',
+    server: 'server1'
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Sync to localStorage
@@ -95,6 +104,25 @@ export default function App() {
   // Trailer modal handler
   const handleOpenTrailer = (trailerKey, title) => {
     setTrailerModal({ isOpen: true, trailerKey, title });
+  };
+
+  // Download modal handler
+  const handleOpenDownload = (target) => {
+    if (!target) return;
+    const media = target.media || target;
+    const targetSeason = target.season || (activeMedia && activeMedia.id === media.id ? season : 1);
+    const targetEpisode = target.episode || (activeMedia && activeMedia.id === media.id ? episode : 1);
+    const targetLang = target.language || (media.type === 'anime' ? (language || 'sub') : 'en');
+    const targetServer = target.server || (activeMedia && activeMedia.id === media.id ? activeServer : (media.type === 'anime' ? 'anime' : (media.preferredServer || settings.defaultServer || 'server1')));
+
+    setDownloadModal({
+      isOpen: true,
+      media,
+      season: targetSeason,
+      episode: targetEpisode,
+      language: targetLang,
+      server: targetServer
+    });
   };
 
   // Update history whenever active media or episode changes
@@ -318,6 +346,7 @@ export default function App() {
             cinemaMode={cinemaMode}
             setCinemaMode={setCinemaMode}
             onOpenTrailer={() => handleOpenTrailer(activeMedia.trailerKey, activeMedia.title)}
+            onOpenDownload={handleOpenDownload}
             onClose={() => {
               setIsPlaying(false);
               setActiveMedia(null);
@@ -334,6 +363,7 @@ export default function App() {
               items={searchResults}
               onPlay={handlePlayMedia}
               onOpenTrailer={handleOpenTrailer}
+              onDownload={handleOpenDownload}
               favorites={watchlist}
               onToggleFavorite={handleToggleFavorite}
               emptyMessage={isSearching ? 'Searching...' : 'No titles found matching your search. Try another keyword or use the Direct ID Launcher.'}
@@ -353,6 +383,7 @@ export default function App() {
                   <RecommendedSection
                     onPlay={handlePlayMedia}
                     onOpenTrailer={handleOpenTrailer}
+                    onDownload={handleOpenDownload}
                     favorites={watchlist}
                     onToggleFavorite={handleToggleFavorite}
                   />
@@ -371,6 +402,7 @@ export default function App() {
                 item={FEATURED_HERO}
                 onPlay={handlePlayMedia}
                 onOpenTrailer={handleOpenTrailer}
+                onDownload={handleOpenDownload}
               />
             )}
 
@@ -401,6 +433,7 @@ export default function App() {
                 items={watchlist}
                 onPlay={handlePlayMedia}
                 onOpenTrailer={handleOpenTrailer}
+                onDownload={handleOpenDownload}
                 favorites={watchlist}
                 onToggleFavorite={handleToggleFavorite}
                 emptyMessage="Your watchlist is currently empty. Click the heart icon on any title to save it here!"
@@ -415,6 +448,7 @@ export default function App() {
                 items={HINDI_CINEMA}
                 onPlay={handlePlayMedia}
                 onOpenTrailer={handleOpenTrailer}
+                onDownload={handleOpenDownload}
                 favorites={watchlist}
                 onToggleFavorite={handleToggleFavorite}
               />
@@ -428,6 +462,7 @@ export default function App() {
                 items={ANIME_CATALOG}
                 onPlay={handlePlayMedia}
                 onOpenTrailer={handleOpenTrailer}
+                onDownload={handleOpenDownload}
                 favorites={watchlist}
                 onToggleFavorite={handleToggleFavorite}
               />
@@ -441,6 +476,7 @@ export default function App() {
                 items={CURATED_MOVIES}
                 onPlay={handlePlayMedia}
                 onOpenTrailer={handleOpenTrailer}
+                onDownload={handleOpenDownload}
                 favorites={watchlist}
                 onToggleFavorite={handleToggleFavorite}
               />
@@ -454,6 +490,7 @@ export default function App() {
                 items={TV_SHOWS}
                 onPlay={handlePlayMedia}
                 onOpenTrailer={handleOpenTrailer}
+                onDownload={handleOpenDownload}
                 favorites={watchlist}
                 onToggleFavorite={handleToggleFavorite}
               />
@@ -498,6 +535,20 @@ export default function App() {
           trailerKey={trailerModal.trailerKey}
           title={trailerModal.title}
           onClose={() => setTrailerModal({ isOpen: false, trailerKey: '', title: '' })}
+        />
+      )}
+
+      {/* Download Manager Modal */}
+      {downloadModal.isOpen && downloadModal.media && (
+        <DownloadModal
+          key={`${downloadModal.media.id}-${downloadModal.season}-${downloadModal.episode}`}
+          isOpen={downloadModal.isOpen}
+          media={downloadModal.media}
+          initialSeason={downloadModal.season}
+          initialEpisode={downloadModal.episode}
+          initialLanguage={downloadModal.language}
+          initialServer={downloadModal.server}
+          onClose={() => setDownloadModal(prev => ({ ...prev, isOpen: false }))}
         />
       )}
 

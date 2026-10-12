@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tv, Play, Hash } from 'lucide-react';
+import { Tv, Play, Hash, Download } from 'lucide-react';
 
 const CHUNK_SIZE = 50;
 
@@ -8,7 +8,8 @@ export default function EpisodeSelector({
   currentSeason,
   currentEpisode,
   onSelectEpisode,
-  onSelectSeason
+  onSelectSeason,
+  onDownloadEpisode
 }) {
   const [jumpInput, setJumpInput] = useState('');
   const [selectedChunk, setSelectedChunk] = useState(null);
@@ -58,6 +59,19 @@ export default function EpisodeSelector({
         </div>
 
         <div className="selector-controls-right">
+          {/* Quick download button for current episode */}
+          {onDownloadEpisode && (
+            <button
+              type="button"
+              className="btn-download-active-ep"
+              onClick={() => onDownloadEpisode(currentEpisode)}
+              title={`Download currently selected episode (${isAnime ? `Ep ${currentEpisode}` : `S${currentSeason}:E${currentEpisode}`})`}
+            >
+              <Download size={14} />
+              <span>Download Ep {currentEpisode}</span>
+            </button>
+          )}
+
           {/* Jump to specific episode input */}
           {totalEpisodes > 15 && (
             <form onSubmit={handleJumpSubmit} className="jump-episode-form">
@@ -123,15 +137,30 @@ export default function EpisodeSelector({
         {displayedEpisodes.map((ep) => {
           const isPlaying = ep === currentEpisode;
           return (
-            <button
-              key={`${isAnime ? 'anime' : 'tv'}-ep-${ep}`}
-              onClick={() => onSelectEpisode(ep)}
-              className={`ep-pill ${isPlaying ? 'active' : ''}`}
-              title={`Play ${isAnime ? 'Anime' : `Season ${currentSeason}`} Episode ${ep}`}
-            >
-              {isPlaying && <Play size={12} className="ep-play-icon" />}
-              <span>{isAnime ? `Ep ${ep}` : `Episode ${ep}`}</span>
-            </button>
+            <div key={`${isAnime ? 'anime' : 'tv'}-ep-${ep}`} className="episode-pill-container">
+              <button
+                onClick={() => onSelectEpisode(ep)}
+                className={`ep-pill ${isPlaying ? 'active' : ''}`}
+                title={`Play ${isAnime ? 'Anime' : `Season ${currentSeason}`} Episode ${ep}`}
+              >
+                {isPlaying && <Play size={12} className="ep-play-icon" />}
+                <span>{isAnime ? `Ep ${ep}` : `Episode ${ep}`}</span>
+              </button>
+              {onDownloadEpisode && (
+                <button
+                  type="button"
+                  className="ep-download-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDownloadEpisode(ep);
+                  }}
+                  title={`Download ${isAnime ? 'Episode' : `Season ${currentSeason} Episode`} ${ep}`}
+                  aria-label={`Download episode ${ep}`}
+                >
+                  <Download size={13} />
+                </button>
+              )}
+            </div>
           );
         })}
       </div>

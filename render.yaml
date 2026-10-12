@@ -1,0 +1,12 @@
+# Render Blueprint specification for DH Pictures Static Site
+# Automatically deploys the frontend on pushes to master branch
+services:
+  - type: web
+    name: dh-pictures
+    runtime: static
+    buildCommand: npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

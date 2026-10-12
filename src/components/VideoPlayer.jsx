@@ -17,6 +17,7 @@ import {
   ChevronLeft, 
   ChevronRight,
   Film,
+  Download,
   X
 } from 'lucide-react';
 import EpisodeSelector from './EpisodeSelector';
@@ -34,6 +35,7 @@ export default function VideoPlayer({
   cinemaMode,
   setCinemaMode,
   onOpenTrailer,
+  onOpenDownload,
   onClose
 }) {
   const [copied, setCopied] = useState(false);
@@ -128,6 +130,23 @@ export default function VideoPlayer({
         </div>
 
         <div className="player-quick-actions">
+          {onOpenDownload && (
+            <button
+              className="btn-control btn-download-quick"
+              onClick={() => onOpenDownload({
+                media,
+                season,
+                episode,
+                language,
+                server: activeServer
+              })}
+              title="Download Movie/Episode to Local Device"
+            >
+              <Download size={15} />
+              <span>Download</span>
+            </button>
+          )}
+
           {media.trailerKey && (
             <button 
               className="btn-trailer-quick"
@@ -303,24 +322,43 @@ export default function VideoPlayer({
           <code className="url-code">{currentStreamUrl}</code>
         </div>
 
-        <div className="player-security-toggle">
-          <button
-            className={`btn-sandbox ${useSandbox ? 'sandbox-on' : 'sandbox-off'}`}
-            onClick={() => setUseSandbox(!useSandbox)}
-            title="Toggle iframe Sandbox (Restricts popups and redirects from embed providers)"
-          >
-            {useSandbox ? (
-              <>
-                <ShieldCheck size={14} className="text-green" />
-                <span>Ad Sandbox: ON</span>
-              </>
-            ) : (
-              <>
-                <ShieldAlert size={14} className="text-yellow" />
-                <span>Ad Sandbox: OFF (Max Compatibility)</span>
-              </>
-            )}
-          </button>
+        <div className="player-actions-aux">
+          {onOpenDownload && (
+            <button
+              className="btn-download-aux"
+              onClick={() => onOpenDownload({
+                media,
+                season,
+                episode,
+                language,
+                server: activeServer
+              })}
+              title="Download current media stream"
+            >
+              <Download size={14} />
+              <span>Download Stream</span>
+            </button>
+          )}
+
+          <div className="player-security-toggle">
+            <button
+              className={`btn-sandbox ${useSandbox ? 'sandbox-on' : 'sandbox-off'}`}
+              onClick={() => setUseSandbox(!useSandbox)}
+              title="Toggle iframe Sandbox (Restricts popups and redirects from embed providers)"
+            >
+              {useSandbox ? (
+                <>
+                  <ShieldCheck size={14} className="text-green" />
+                  <span>Ad Sandbox: ON</span>
+                </>
+              ) : (
+                <>
+                  <ShieldAlert size={14} className="text-yellow" />
+                  <span>Ad Sandbox: OFF (Max Compatibility)</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -335,6 +373,13 @@ export default function VideoPlayer({
             setSeason(sn);
             setEpisode(1);
           }}
+          onDownloadEpisode={onOpenDownload ? (ep) => onOpenDownload({
+            media,
+            season,
+            episode: ep,
+            language,
+            server: activeServer
+          }) : undefined}
         />
       )}
     </div>

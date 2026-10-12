@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Film, Star, Heart } from 'lucide-react';
+import { Play, Film, Star, Heart, Download } from 'lucide-react';
 
 const TMDB_FALLBACK_POSTER = 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg';
 
@@ -9,7 +9,8 @@ export default function MediaCard({
   onOpenTrailer,
   isFavorite,
   onToggleFavorite,
-  showBadge = false
+  showBadge = false,
+  onDownload
 }) {
   const isHindi = item.isHindi || item.preferredServer === 'server6';
   const isAnime = item.type === 'anime';
@@ -61,6 +62,19 @@ export default function MediaCard({
           </button>
 
           <div className="card-action-bar">
+            {onDownload && (
+              <button
+                className="card-mini-btn"
+                title="Download to Local Device"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDownload(item);
+                }}
+              >
+                <Download size={14} />
+              </button>
+            )}
+
             {item.trailerKey && (
               <button
                 className="card-mini-btn"

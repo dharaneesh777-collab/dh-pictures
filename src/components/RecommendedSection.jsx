@@ -7,7 +7,8 @@ export default function RecommendedSection({
   onPlay,
   onOpenTrailer,
   favorites = [],
-  onToggleFavorite
+  onToggleFavorite,
+  onDownload
 }) {
   const [filter, setFilter] = useState('movies');
 
@@ -70,6 +71,7 @@ export default function RecommendedSection({
               onOpenTrailer={onOpenTrailer}
               isFavorite={isFav}
               onToggleFavorite={onToggleFavorite}
+              onDownload={onDownload}
             />
           );
         })}
