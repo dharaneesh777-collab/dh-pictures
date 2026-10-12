@@ -575,6 +575,10 @@ export default function App() {
           initialEpisode={downloadModal.episode}
           initialLanguage={downloadModal.language}
           initialServer={downloadModal.server}
+          onPlayStream={(options) => {
+            handlePlayMedia(options.media, options);
+            setDownloadModal(prev => ({ ...prev, isOpen: false }));
+          }}
           onClose={() => setDownloadModal(prev => ({ ...prev, isOpen: false }))}
         />
       )}

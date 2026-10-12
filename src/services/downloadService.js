@@ -144,7 +144,7 @@ export function getDownloadUrl({
 }
 
 /**
- * Generate 1-click CLI download command for desktop users (yt-dlp, ffmpeg, curl, vlc)
+ * Generate 1-click CLI download command for desktop users (yt-dlp, ffmpeg, curl, vlc, idm, aria2c)
  */
 export function getDownloadCommand(tool = 'yt-dlp', { url = '', filename = 'media.mp4' } = {}) {
   if (!url) return '';
@@ -159,6 +159,14 @@ export function getDownloadCommand(tool = 'yt-dlp', { url = '', filename = 'medi
       return `curl -L "${url}" -o "${filename}"`;
     case 'vlc':
       return `vlc "${url}"`;
+    case 'idm':
+    case 'idman':
+      return `idman /d "${url}" /p "%USERPROFILE%\\Downloads" /f "${filename}" /n /a`;
+    case 'aria2':
+    case 'aria2c':
+      return `aria2c -s 16 -x 16 -o "${filename}" "${url}"`;
+    case '1dm':
+      return `${url}`;
     default:
       return `yt-dlp "${url}" -o "${filename}"`;
   }
@@ -169,7 +177,9 @@ export function getDownloadCommands({ url = '', filename = 'media.mp4' } = {}) {
     'yt-dlp': getDownloadCommand('yt-dlp', { url, filename }),
     ffmpeg: getDownloadCommand('ffmpeg', { url, filename }),
     curl: getDownloadCommand('curl', { url, filename }),
-    vlc: getDownloadCommand('vlc', { url, filename })
+    vlc: getDownloadCommand('vlc', { url, filename }),
+    idm: getDownloadCommand('idm', { url, filename }),
+    aria2c: getDownloadCommand('aria2c', { url, filename })
   };
 }
 

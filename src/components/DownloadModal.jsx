@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   Terminal,
   ShieldCheck,
-  Play
+  Play,
+  Download
 } from 'lucide-react';
 import {
   QUALITY_OPTIONS,
@@ -36,7 +37,8 @@ export default function DownloadModal({
   initialSeason = 1,
   initialEpisode = 1,
   initialLanguage = 'en',
-  initialServer = 'server1'
+  initialServer = 'server1',
+  onPlayStream
 }) {
   const isAnime = media?.type === 'anime';
   const isHindi = media?.isHindi || media?.preferredServer === 'server6';
@@ -51,6 +53,7 @@ export default function DownloadModal({
   const [selectedLanguage, setSelectedLanguage] = useState(defaultLanguage);
   const [commandTool, setCommandTool] = useState('yt-dlp');
   const [commandCopied, setCommandCopied] = useState(false);
+  const [showInAppPreview, setShowInAppPreview] = useState(false);
   
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -378,7 +381,9 @@ export default function DownloadModal({
                   { id: 'yt-dlp', label: 'yt-dlp (Best)' },
                   { id: 'ffmpeg', label: 'ffmpeg' },
                   { id: 'curl', label: 'curl' },
-                  { id: 'vlc', label: 'VLC' }
+                  { id: 'vlc', label: 'VLC' },
+                  { id: 'idm', label: 'IDM' },
+                  { id: 'aria2c', label: 'aria2c' }
                 ].map((tool) => (
                   <button
                     key={tool.id}
@@ -408,6 +413,62 @@ export default function DownloadModal({
             </div>
           </div>
 
+          {/* Clean In-App Stream Launcher & Direct Preview */}
+          <div className="in-app-launcher-section">
+            <div className="in-app-launcher-header">
+              <div className="in-app-launcher-title">
+                <Play size={15} className="text-green" />
+                <span>Clean In-App Stream Launcher:</span>
+              </div>
+              <div className="in-app-launcher-actions">
+                <button
+                  type="button"
+                  className={`in-app-toggle-btn ${showInAppPreview ? 'active' : ''}`}
+                  onClick={() => setShowInAppPreview(prev => !prev)}
+                >
+                  {showInAppPreview ? 'Hide In-App Player' : 'Launch In-App Player Preview'}
+                </button>
+                {onPlayStream && (
+                  <button
+                    type="button"
+                    className="in-app-play-btn"
+                    onClick={() => {
+                      onPlayStream({
+                        media,
+                        server: selectedServer,
+                        season: selectedSeason,
+                        episode: selectedEpisode,
+                        language: selectedLanguage
+                      });
+                    }}
+                    title="Launch stream directly in main video player"
+                  >
+                    <Play size={13} fill="currentColor" />
+                    <span>Stream in Main Player</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {showInAppPreview && (
+              <div className="in-app-preview-container">
+                <iframe
+                  key={downloadUrl}
+                  src={downloadUrl}
+                  title={`${media.title} Clean Stream Preview`}
+                  className="in-app-preview-iframe"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  referrerPolicy="origin"
+                />
+                <div className="in-app-preview-helper">
+                  <ShieldCheck size={13} className="text-green" />
+                  <span>Right-click player video to "Save Video As..." or inspect stream source directly without pop-ups.</span>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Step-by-Step Direct Download Guide */}
           <div className="download-guide-card">
             <div className="download-guide-title">
@@ -416,10 +477,10 @@ export default function DownloadModal({
             </div>
             <ol className="download-guide-list">
               <li>
-                <strong>Option 1 (Fastest CLI Download):</strong> Copy the <code>yt-dlp</code> command above and paste it in Terminal/PowerShell to download at full speed with multi-threading.
+                <strong>Option 1 (Fastest CLI Download):</strong> Copy the <code>yt-dlp</code> or <code>IDM</code> command above and paste it in Terminal/PowerShell to download at full speed with multi-threading.
               </li>
               <li>
-                <strong>Option 2 (Direct in Browser):</strong> Click <strong>"Launch Stream Mirror"</strong> below. In the player tab, right-click the video and select <strong>"Save Video As..."</strong> (or press <strong>Ctrl+S</strong>).
+                <strong>Option 2 (Direct in Browser):</strong> Click <strong>"Download / Launch Stream"</strong> below or toggle <strong>"Launch In-App Player Preview"</strong>. Right-click the video and select <strong>"Save Video As..."</strong> (or press <strong>Ctrl+S</strong>).
               </li>
               <li>
                 <strong>Option 3 (Download Managers):</strong> Paste the stream URL into <strong>IDM</strong>, <strong>1DM</strong>, or <strong>VLC Media Player</strong> (<em>Media &gt; Open Network Stream</em>).
@@ -449,7 +510,7 @@ export default function DownloadModal({
               {downloadComplete && (
                 <div className="download-success-tip">
                   <CheckCircle2 size={15} className="text-green" />
-                  <span>Stream mirror opened in new tab! You can right-click the player to save the video, or run the yt-dlp command.</span>
+                  <span>Stream mirror opened! You can right-click the player to save the video, or run the yt-dlp command.</span>
                 </div>
               )}
             </div>
@@ -464,8 +525,8 @@ export default function DownloadModal({
             onClick={handleStartDownload}
             disabled={isDownloading}
           >
-            <Play size={18} />
-            <span>{isDownloading ? 'Opening Mirror...' : 'Launch Stream Mirror'}</span>
+            <Download size={18} />
+            <span>{isDownloading ? 'Opening Mirror...' : 'Download / Launch Stream'}</span>
           </button>
 
           <button

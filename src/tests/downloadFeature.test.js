@@ -122,12 +122,21 @@ describe('Download Service & Link Builder Tests', () => {
         .toBe(`vlc "${testUrl}"`);
     });
 
+    it('generates valid IDM and aria2c commands', () => {
+      expect(getDownloadCommand('idm', { url: testUrl, filename: testFilename }))
+        .toBe(`idman /d "${testUrl}" /p "%USERPROFILE%\\Downloads" /f "${testFilename}" /n /a`);
+      expect(getDownloadCommand('aria2c', { url: testUrl, filename: testFilename }))
+        .toBe(`aria2c -s 16 -x 16 -o "${testFilename}" "${testUrl}"`);
+    });
+
     it('provides getDownloadCommands dictionary for all tools', () => {
       const cmds = getDownloadCommands({ url: testUrl, filename: testFilename });
       expect(cmds['yt-dlp']).toContain('yt-dlp');
       expect(cmds.ffmpeg).toContain('ffmpeg');
       expect(cmds.curl).toContain('curl');
       expect(cmds.vlc).toContain('vlc');
+      expect(cmds.idm).toContain('idman');
+      expect(cmds.aria2c).toContain('aria2c');
     });
 
     it('returns empty string if url is missing', () => {
