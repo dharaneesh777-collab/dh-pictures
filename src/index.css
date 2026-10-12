@@ -2848,3 +2848,63 @@ body {
   color: var(--text-muted);
 }
 
+.episode-num-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.episode-num-input {
+  width: 90px !important;
+  text-align: center;
+  padding: 0.35rem 0.5rem !important;
+}
+
+.episode-max-hint {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.top5-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all var(--transition-fast);
+}
+
+.top5-download-btn:hover {
+  background: rgba(16, 185, 129, 0.3);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+.history-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  cursor: pointer;
+  margin-left: 0.4rem;
+  transition: all var(--transition-fast);
+}
+
+.history-download-btn:hover {
+  background: rgba(16, 185, 129, 0.3);
+  color: #fff;
+  transform: scale(1.08);
+}
+

@@ -124,7 +124,60 @@ describe('Download Service & Link Builder Tests', () => {
     });
   });
 
+  describe('formatFileName edge cases', () => {
+    it('handles special-characters-only title with fallback to Media', () => {
+      const filename = formatFileName({
+        title: '???!!!###',
+        type: 'movie',
+        quality: '720p',
+        language: 'en'
+      });
+      expect(filename).toBe('Media.720P.EN.DHPictures.mp4');
+    });
+
+    it('formats large episode numbers (e.g. One Piece ep 1085) without truncation', () => {
+      const filename = formatFileName({
+        title: 'One Piece',
+        type: 'anime',
+        episode: 1085,
+        quality: '1080p',
+        language: 'sub'
+      });
+      expect(filename).toBe('One.Piece.EP1085.SUB.1080P.DHPictures.mp4');
+    });
+
+    it('handles missing or zero season/episode gracefully', () => {
+      const filename = formatFileName({
+        title: 'Breaking Bad',
+        type: 'tv',
+        season: 0,
+        episode: 0,
+        quality: '1080p',
+        language: 'en'
+      });
+      expect(filename).toBe('Breaking.Bad.S01E01.1080P.EN.DHPictures.mp4');
+    });
+  });
+
+  describe('getDownloadUrl robustness and fallbacks', () => {
+    const mockMovie = { id: '872585', title: 'Oppenheimer', type: 'movie' };
+
+    it('returns empty string if media or id is missing', () => {
+      expect(getDownloadUrl({ media: null })).toBe('');
+      expect(getDownloadUrl({ media: { title: 'Unknown' } })).toBe('');
+    });
+
+    it('falls back from trailer server to default streaming mirror', () => {
+      const url = getDownloadUrl({ media: mockMovie, serverId: 'trailer', quality: '1080p' });
+      expect(url).toContain('https://vixsrc.to/download/movie/872585');
+    });
+  });
+
   describe('triggerBrowserDownload', () => {
+    it('rejects if url is missing', async () => {
+      await expect(triggerBrowserDownload({ url: '' })).rejects.toThrow('Missing download URL');
+    });
+
     it('dispatches progress updates and completes download promise', async () => {
       vi.useFakeTimers();
 
@@ -138,9 +191,8 @@ describe('Download Service & Link Builder Tests', () => {
       });
 
       // Advance timers through download lifecycle
-      vi.advanceTimersByTime(500);
-      vi.advanceTimersByTime(500);
-      vi.advanceTimersByTime(600);
+      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(350);
 
       const result = await downloadPromise;
 

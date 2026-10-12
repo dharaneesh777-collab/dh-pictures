@@ -132,9 +132,10 @@ export default function DownloadModal({
   // TV seasons data
   const seasons = media.seasons || [{ seasonNumber: 1, episodesCount: 10 }];
   const currentSeasonData = seasons.find(s => s.seasonNumber === selectedSeason) || seasons[0];
-  const maxEpisodes = isAnime 
+  const rawEpisodes = isAnime 
     ? (media.episodesCount || 24)
     : (currentSeasonData ? currentSeasonData.episodesCount : 10);
+  const maxEpisodes = Math.max(rawEpisodes, selectedEpisode, initialEpisode || 1);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -231,17 +232,31 @@ export default function DownloadModal({
 
                 <div className="episode-select-inline">
                   <span className="inline-label">Episode:</span>
-                  <select
-                    value={selectedEpisode}
-                    onChange={(e) => setSelectedEpisode(Number(e.target.value))}
-                    className="download-select"
-                  >
-                    {Array.from({ length: maxEpisodes }, (_, i) => i + 1).map(epNum => (
-                      <option key={epNum} value={epNum}>
-                        Episode {epNum}
-                      </option>
-                    ))}
-                  </select>
+                  {maxEpisodes <= 60 ? (
+                    <select
+                      value={selectedEpisode}
+                      onChange={(e) => setSelectedEpisode(Number(e.target.value))}
+                      className="download-select"
+                    >
+                      {Array.from({ length: maxEpisodes }, (_, i) => i + 1).map(epNum => (
+                        <option key={epNum} value={epNum}>
+                          Episode {epNum}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="episode-num-input-wrap">
+                      <input
+                        type="number"
+                        min="1"
+                        max={maxEpisodes}
+                        value={selectedEpisode}
+                        onChange={(e) => setSelectedEpisode(Math.max(1, Math.min(maxEpisodes, parseInt(e.target.value, 10) || 1)))}
+                        className="download-select episode-num-input"
+                      />
+                      <span className="episode-max-hint">/ {maxEpisodes}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

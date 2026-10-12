@@ -13,9 +13,9 @@ describe('Render Deployment Automation (render.yaml)', () => {
     const content = fs.readFileSync(renderYamlPath, 'utf-8');
 
     // Verify service configuration
-    expect(content).toMatch(/type:\s*web/);
+    expect(content).toMatch(/type:\s*static/);
     expect(content).toMatch(/name:\s*dh-pictures/);
-    expect(content).toMatch(/runtime:\s*static/);
+    expect(content).toMatch(/branch:\s*master/);
 
     // Verify build command & output directory
     expect(content).toMatch(/buildCommand:\s*npm run build/);

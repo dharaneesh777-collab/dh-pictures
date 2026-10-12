@@ -1,7 +1,7 @@
 import React from 'react';
-import { History, Play, Trash2 } from 'lucide-react';
+import { History, Play, Trash2, Download } from 'lucide-react';
 
-export default function WatchHistory({ history = [], onResume, onClearHistory }) {
+export default function WatchHistory({ history = [], onResume, onClearHistory, onDownload }) {
   if (!history || history.length === 0) return null;
 
   return (
@@ -50,6 +50,26 @@ export default function WatchHistory({ history = [], onResume, onClearHistory })
                 {item.type === 'anime' && <span>Ep {item.episode || 1} ({item.language?.toUpperCase() || 'SUB'})</span>}
                 {item.type === 'movie' && <span>Movie</span>}
                 <span className="history-server-tag">{item.server}</span>
+                {onDownload && (
+                  <button
+                    type="button"
+                    className="history-download-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDownload({
+                        media: item,
+                        season: item.season || 1,
+                        episode: item.episode || 1,
+                        language: item.language || 'en',
+                        server: item.server
+                      });
+                    }}
+                    title={`Download ${item.title}`}
+                    aria-label={`Download ${item.title}`}
+                  >
+                    <Download size={11} />
+                  </button>
+                )}
               </div>
             </div>
           </div>

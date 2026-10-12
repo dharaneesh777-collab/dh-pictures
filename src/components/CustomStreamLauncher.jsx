@@ -5,11 +5,12 @@ import {
   Copy, 
   Check, 
   Terminal, 
-  Flame 
+  Flame,
+  Download 
 } from 'lucide-react';
 import { STREAM_SERVERS, getStreamUrl, getTrailerUrl } from '../services/streamServers';
 
-export default function CustomStreamLauncher({ onLaunchStream }) {
+export default function CustomStreamLauncher({ onLaunchStream, onDownloadStream }) {
   const [mediaType, setMediaType] = useState('movie');
   const [customId, setCustomId] = useState('872585');
   const [season, setSeason] = useState(1);
@@ -93,6 +94,26 @@ export default function CustomStreamLauncher({ onLaunchStream }) {
       season: Number(season) || 1,
       episode: Number(episode) || 1,
       language: 'sub'
+    });
+  };
+
+  const handleDownload = () => {
+    if (!onDownloadStream || mediaType === 'trailer') return;
+    const isAnime = mediaType === 'anime';
+    const media = {
+      id: customId,
+      anilistId: isAnime ? customId : undefined,
+      type: mediaType,
+      title: `${mediaType === 'movie' ? 'Movie' : mediaType === 'tv' ? 'TV Show' : 'Anime'} #${customId}`,
+      seasons: [{ seasonNumber: Number(season) || 1, episodesCount: 24 }],
+      episodesCount: Math.max(Number(episode) || 24, 24)
+    };
+    onDownloadStream({
+      media,
+      season: Number(season) || 1,
+      episode: Number(episode) || 1,
+      language: animeLang,
+      server: selectedServer
     });
   };
 
@@ -342,6 +363,18 @@ export default function CustomStreamLauncher({ onLaunchStream }) {
           <Play size={18} fill="currentColor" />
           <span>Stream in Player Now</span>
         </button>
+
+        {onDownloadStream && mediaType !== 'trailer' && (
+          <button
+            type="button"
+            className="btn-launch-secondary"
+            onClick={handleDownload}
+            title="Download this stream to local downloads"
+          >
+            <Download size={16} />
+            <span>Download</span>
+          </button>
+        )}
 
         {generatedUrl && (
           <a

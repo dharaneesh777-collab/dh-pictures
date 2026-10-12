@@ -91,3 +91,13 @@ The project is published to GitHub Pages from the `gh-pages` branch:
 1. Connect your repository on [Netlify](https://netlify.com).
 2. Set build command to `npm run build` and publish directory to `dist`.
 3. Click **Deploy**.
+
+### Option 4: Render (Blueprint & CLI)
+1. **Render Blueprint (Zero Configuration)**:
+   - The repository includes [`render.yaml`](file:///C:/Users/dhara/.gemini/antigravity/scratch/stream-verse/render.yaml) configured as a static site (`type: static`, `buildCommand: npm run build`, `staticPublishPath: dist`, SPA rewrite `/* -> /index.html`).
+   - In Render Dashboard: Click **New** -> **Blueprint**, select `dh-pictures` repository, and Render automatically deploys on every push to `master`.
+2. **Render CLI**:
+   - Render CLI (`render v2.28.0`) is installed.
+   - Run `render login` to authenticate with your Render API key.
+   - Run `render deploys create` or manage services directly from terminal.
+

@@ -113,7 +113,13 @@ export default function App() {
     const targetSeason = target.season || (activeMedia && activeMedia.id === media.id ? season : 1);
     const targetEpisode = target.episode || (activeMedia && activeMedia.id === media.id ? episode : 1);
     const targetLang = target.language || (media.type === 'anime' ? (language || 'sub') : 'en');
-    const targetServer = target.server || (activeMedia && activeMedia.id === media.id ? activeServer : (media.type === 'anime' ? 'anime' : (media.preferredServer || settings.defaultServer || 'server1')));
+    
+    let targetServer = target.server;
+    if (!targetServer || targetServer === 'trailer') {
+      targetServer = (activeMedia && activeMedia.id === media.id && activeServer !== 'trailer')
+        ? activeServer
+        : (media.type === 'anime' ? 'anime' : (media.preferredServer || settings.defaultServer || 'server1'));
+    }
 
     setDownloadModal({
       isOpen: true,
@@ -259,12 +265,25 @@ export default function App() {
         };
       }
 
+      const effectiveServer = srv || (type === 'anime' ? 'anime' : (found.preferredServer || settings.defaultServer || 'server1'));
+
       handlePlayMedia(found, {
-        server: srv || (type === 'anime' ? 'anime' : (found.preferredServer || settings.defaultServer || 'server1')),
+        server: effectiveServer,
         season: s,
         episode: ep,
         language: lang
       });
+
+      const isDownloadReq = params.get('download') === 'true' || params.get('action') === 'download';
+      if (isDownloadReq) {
+        handleOpenDownload({
+          media: found,
+          season: s,
+          episode: ep,
+          language: lang,
+          server: effectiveServer
+        });
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -391,6 +410,7 @@ export default function App() {
                 <div className="flixeo-side-col">
                   <TopFiveSidebar
                     onPlay={handlePlayMedia}
+                    onDownload={handleOpenDownload}
                   />
                 </div>
               </div>
@@ -416,12 +436,16 @@ export default function App() {
                 language: item.language
               })}
               onClearHistory={() => setHistory([])}
+              onDownload={handleOpenDownload}
             />
 
             {/* Direct Custom Stream Launcher Tab */}
             {activeTab === 'launcher' && (
               <div className="launcher-tab-wrap">
-                <CustomStreamLauncher onLaunchStream={handleCustomLaunch} />
+                <CustomStreamLauncher 
+                  onLaunchStream={handleCustomLaunch} 
+                  onDownloadStream={handleOpenDownload}
+                />
               </div>
             )}
 
@@ -499,7 +523,10 @@ export default function App() {
             {/* Direct Launcher teaser at bottom of 'all' tab */}
             {activeTab === 'all' && (
               <div className="launcher-bottom-section">
-                <CustomStreamLauncher onLaunchStream={handleCustomLaunch} />
+                <CustomStreamLauncher 
+                  onLaunchStream={handleCustomLaunch} 
+                  onDownloadStream={handleOpenDownload}
+                />
               </div>
             )}
           </>

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { Download } from 'lucide-react';
 import { TOP_5_DATA } from '../services/catalogData';
 
 const TMDB_FALLBACK_POSTER = 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg';
 
-export default function TopFiveSidebar({ onPlay }) {
+export default function TopFiveSidebar({ onPlay, onDownload }) {
   const [activeTimeframe, setActiveTimeframe] = useState('day');
 
   const currentList = TOP_5_DATA[activeTimeframe] || TOP_5_DATA.day;
@@ -70,6 +71,20 @@ export default function TopFiveSidebar({ onPlay }) {
                 </h4>
                 <div className="top5-item-meta">
                   <span>{typeLabel} • {yearLabel}</span>
+                  {onDownload && (
+                    <button
+                      type="button"
+                      className="top5-download-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownload(item);
+                      }}
+                      title={`Download ${item.title}`}
+                      aria-label={`Download ${item.title}`}
+                    >
+                      <Download size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

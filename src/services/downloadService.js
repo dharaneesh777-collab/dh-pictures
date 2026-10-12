@@ -79,22 +79,26 @@ export function formatFileName({
   quality = '1080p',
   language = 'en'
 }) {
-  const safeTitle = String(title || 'Media')
+  const cleanTitle = String(title || 'Media')
     .trim()
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '.');
+  const safeTitle = cleanTitle || 'Media';
 
-  const langTag = language.toUpperCase();
-  const qTag = quality.toUpperCase();
+  const langTag = String(language || 'en').toUpperCase();
+  const qTag = String(quality || '1080p').toUpperCase();
+
+  const safeSeason = Math.max(1, parseInt(season, 10) || 1);
+  const safeEpisode = Math.max(1, parseInt(episode, 10) || 1);
 
   if (type === 'tv') {
-    const s = String(season || 1).padStart(2, '0');
-    const ep = String(episode || 1).padStart(2, '0');
+    const s = String(safeSeason).padStart(2, '0');
+    const ep = String(safeEpisode).padStart(2, '0');
     return `${safeTitle}.S${s}E${ep}.${qTag}.${langTag}.DHPictures.mp4`;
   }
 
   if (type === 'anime') {
-    const ep = String(episode || 1).padStart(2, '0');
+    const ep = String(safeEpisode).padStart(2, '0');
     return `${safeTitle}.EP${ep}.${langTag}.${qTag}.DHPictures.mp4`;
   }
 
@@ -117,9 +121,17 @@ export function getDownloadUrl({
   if (!media) return '';
   const id = String(media.id || media.anilistId || '').trim();
   const anilistId = String(media.anilistId || media.id || '').trim();
+  if (!id && !anilistId) return '';
+
   const type = media.type || 'movie';
 
-  switch (serverId) {
+  // If server is 'trailer' or invalid, select default download server for this media
+  let effectiveServer = serverId;
+  if (effectiveServer === 'trailer' || !effectiveServer) {
+    effectiveServer = type === 'anime' ? 'anime' : (media.preferredServer || 'server1');
+  }
+
+  switch (effectiveServer) {
     case 'server1':
       // VixSrc download gateway
       return type === 'movie'
@@ -207,67 +219,72 @@ export function triggerBrowserDownload({
   filename,
   onStatusChange
 }) {
+  if (!url) {
+    return Promise.reject(new Error('Missing download URL'));
+  }
+
+  // 1. Immediately trigger download while user activation context is active
+  let triggered = false;
+  try {
+    if (typeof document !== 'undefined') {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'download.mp4';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        try {
+          if (link.parentNode) link.parentNode.removeChild(link);
+        } catch {
+          // Ignore detach errors
+        }
+      }, 150);
+      triggered = true;
+    } else if (typeof window !== 'undefined') {
+      window.open(url, '_blank');
+      triggered = true;
+    }
+  } catch (err) {
+    console.warn('Native download link trigger fallback:', err);
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank');
+      triggered = true;
+    }
+  }
+
   if (typeof onStatusChange === 'function') {
     onStatusChange({
       status: 'starting',
-      progress: 10,
-      message: 'Connecting to download server...'
+      progress: 25,
+      message: 'Connecting to download stream gateway...'
     });
   }
 
   return new Promise((resolve) => {
-    // Step 1: Simulated handshake and buffer progress
-    setTimeout(() => {
-      if (typeof onStatusChange === 'function') {
-        onStatusChange({
-          status: 'connecting',
-          progress: 40,
-          message: 'Allocating high-speed stream chunk...'
-        });
-      }
-    }, 400);
-
     setTimeout(() => {
       if (typeof onStatusChange === 'function') {
         onStatusChange({
           status: 'downloading',
-          progress: 80,
+          progress: 75,
           message: `Packaging file: ${filename}...`
         });
       }
-    }, 900);
+    }, 300);
 
     setTimeout(() => {
-      // Step 2: Trigger browser download action to user's local downloads folder
-      try {
-        if (typeof document !== 'undefined') {
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else if (typeof window !== 'undefined') {
-          window.open(url, '_blank');
-        }
-      } catch (err) {
-        console.warn('Native download link trigger fallback:', err);
-        if (typeof window !== 'undefined') {
-          window.open(url, '_blank');
-        }
-      }
-
       if (typeof onStatusChange === 'function') {
         onStatusChange({
           status: 'completed',
           progress: 100,
-          message: 'Download initiated! Check your browser local Downloads folder.'
+          message: triggered 
+            ? 'Download initiated! File is saving to your local Downloads folder.'
+            : 'Download stream link opened in a new browser tab.'
         });
       }
 
       resolve({ success: true, filename, url });
-    }, 1400);
+    }, 600);
   });
 }
