@@ -69,6 +69,8 @@ export const AUDIO_OPTIONS = {
 
 /**
  * Format a clean, standardized filename for downloads
+ * Supports international Unicode titles (Indic, Japanese, CJK, accented Latin)
+ * while stripping unsafe filesystem characters and normalizing dots.
  */
 export function formatFileName({
   title = 'Media',
@@ -81,8 +83,10 @@ export function formatFileName({
 }) {
   const cleanTitle = String(title || 'Media')
     .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '.');
+    .replace(/[^\p{L}\p{M}\p{N}\s._-]/gu, '')
+    .replace(/\s+/g, '.')
+    .replace(/\.+/g, '.')
+    .replace(/^\.+|\.+$/g, '');
   const safeTitle = cleanTitle || 'Media';
 
   const langTag = String(language || 'en').toUpperCase();
@@ -149,26 +153,30 @@ export function getDownloadUrl({
 export function getDownloadCommand(tool = 'yt-dlp', { url = '', filename = 'media.mp4' } = {}) {
   if (!url) return '';
   const normalizedTool = String(tool).toLowerCase();
+  const safeFilename = filename && /\.[a-z0-9]{2,4}$/i.test(filename)
+    ? filename
+    : `${filename || 'media'}.mp4`;
+
   switch (normalizedTool) {
     case 'yt-dlp':
     case 'ytdlp':
-      return `yt-dlp "${url}" -o "${filename}"`;
+      return `yt-dlp "${url}" -o "${safeFilename}"`;
     case 'ffmpeg':
-      return `ffmpeg -i "${url}" -c copy "${filename}"`;
+      return `ffmpeg -i "${url}" -c copy "${safeFilename}"`;
     case 'curl':
-      return `curl -L "${url}" -o "${filename}"`;
+      return `curl -L "${url}" -o "${safeFilename}"`;
     case 'vlc':
       return `vlc "${url}"`;
     case 'idm':
     case 'idman':
-      return `idman /d "${url}" /p "%USERPROFILE%\\Downloads" /f "${filename}" /n /a`;
+      return `idman /d "${url}" /p "%USERPROFILE%\\Downloads" /f "${safeFilename}" /n /a`;
     case 'aria2':
     case 'aria2c':
-      return `aria2c -s 16 -x 16 -o "${filename}" "${url}"`;
+      return `aria2c -s 16 -x 16 -o "${safeFilename}" "${url}"`;
     case '1dm':
       return `${url}`;
     default:
-      return `yt-dlp "${url}" -o "${filename}"`;
+      return `yt-dlp "${url}" -o "${safeFilename}"`;
   }
 }
 
@@ -214,6 +222,47 @@ export function getEstimatedSize(mediaType, qualityId) {
 }
 
 /**
+ * Safely copy text to user clipboard with multi-tier fallbacks (navigator.clipboard + document.execCommand)
+ */
+export async function copyTextToClipboard(text) {
+  if (!text) return false;
+
+  // 1. Modern async Clipboard API
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fallback
+    }
+  }
+
+  // 2. Fallback to execCommand('copy') with offscreen textarea
+  if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.top = '-9999px';
+      textarea.style.left = '-9999px';
+      textarea.setAttribute('readonly', '');
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const success = document.execCommand ? document.execCommand('copy') : false;
+      if (textarea.parentNode) {
+        textarea.parentNode.removeChild(textarea);
+      }
+      if (success) return true;
+    } catch {
+      // Fallback failed
+    }
+  }
+
+  return false;
+}
+
+/**
  * Detect whether a given URL points to an accessible direct media file (.mp4, .mkv, blob, etc.)
  * versus a protected third-party embed player iframe (vixsrc, vidcore, screenscape, megaplay, etc.)
  */
@@ -226,9 +275,9 @@ export function isDirectMediaStream(url) {
   try {
     const parsed = new URL(cleanUrl, 'http://localhost');
     const pathname = parsed.pathname.toLowerCase();
-    return /\.(mp4|mkv|webm|ts|m4s|mp3|m4a|aac)$/i.test(pathname);
+    return /\.(mp4|mkv|webm|ts|m4s|mp3|m4a|aac|mov|avi)$/i.test(pathname);
   } catch {
-    return /\.(mp4|mkv|webm|ts|m4s)(\?|$)/i.test(cleanUrl);
+    return /\.(mp4|mkv|webm|ts|m4s|mov|avi)(\?|$)/i.test(cleanUrl);
   }
 }
 
@@ -293,9 +342,29 @@ export async function triggerBrowserDownload({
     });
   }
 
-  const response = await fetch(effectiveUrl);
+  let response;
+  try {
+    response = await fetch(effectiveUrl);
+  } catch (fetchErr) {
+    const error = new Error(
+      `Direct in-browser stream fetch failed (${fetchErr.message || 'CORS / Network restriction'}). Please use yt-dlp or IDM command to download the full file.`
+    );
+    error.code = 'CORS_RESTRICTED';
+    error.isEmbedServer = false;
+    error.url = effectiveUrl;
+    error.filename = filename;
+    error.quality = quality;
+    error.commands = getDownloadCommands({ url: effectiveUrl, filename });
+    throw error;
+  }
+
   if (!response.ok) {
     throw new Error(`Failed to fetch media stream (${response.status}: ${response.statusText})`);
+  }
+
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('text/html') || contentType.includes('text/plain') || contentType.includes('application/json')) {
+    throw new Error('Received non-video text/HTML response instead of media stream. Direct stream access may be protected.');
   }
 
   const contentLength = Number(response.headers.get('content-length')) || 0;
@@ -312,12 +381,17 @@ export async function triggerBrowserDownload({
       chunks.push(value);
       loaded += value.length;
 
-      if (contentLength > 0 && typeof onStatusChange === 'function') {
-        const progress = Math.min(99, Math.max(10, Math.round((loaded / contentLength) * 100)));
+      if (typeof onStatusChange === 'function') {
+        const progress = contentLength > 0
+          ? Math.min(99, Math.max(10, Math.round((loaded / contentLength) * 100)))
+          : 50;
+        const sizeInfo = (loaded / 1048576).toFixed(1);
         onStatusChange({
           status: 'downloading',
           progress,
-          message: `Downloading video stream: ${progress}% (${(loaded / 1048576).toFixed(1)} MB)...`
+          message: contentLength > 0
+            ? `Downloading video stream: ${progress}% (${sizeInfo} MB)...`
+            : `Downloading video stream: ${sizeInfo} MB...`
         });
       }
     }

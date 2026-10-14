@@ -3057,6 +3057,12 @@ body {
   color: #fff;
 }
 
+.cli-chip-btn.active-tool {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.55);
+  color: #fff;
+}
+
 /* CORS & Stream Protection Notice Card */
 .download-cors-notice-card {
   background: rgba(245, 158, 11, 0.08);

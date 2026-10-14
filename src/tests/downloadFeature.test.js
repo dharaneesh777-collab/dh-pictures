@@ -11,7 +11,8 @@ import {
   isDirectMediaStream,
   createMp4Blob,
   triggerBrowserDownload,
-  downloadVideoFile
+  downloadVideoFile,
+  copyTextToClipboard
 } from '../services/downloadService';
 
 describe('Download Service & Link Builder Tests', () => {
@@ -142,6 +143,11 @@ describe('Download Service & Link Builder Tests', () => {
       expect(cmds.aria2c).toBe(`aria2c -s 16 -x 16 -o "${testFilename}" "${testUrl}"`);
     });
 
+    it('ensures .mp4 extension when filename is provided without one', () => {
+      const cmd = getDownloadCommand('yt-dlp', { url: testUrl, filename: 'Spider-Man' });
+      expect(cmd).toBe(`yt-dlp "${testUrl}" -o "Spider-Man.mp4"`);
+    });
+
     it('returns empty string if url is missing', () => {
       expect(getDownloadCommand('yt-dlp', { url: '' })).toBe('');
     });
@@ -188,6 +194,35 @@ describe('Download Service & Link Builder Tests', () => {
         language: 'en'
       });
       expect(filename).toBe('Media.720P.EN.DHPictures.mp4');
+    });
+
+    it('preserves international Unicode titles across Hindi, Japanese, and accented European names', () => {
+      const hindiMovie = formatFileName({
+        title: 'Dangal: दंगल',
+        type: 'movie',
+        year: '2016',
+        quality: '1080p',
+        language: 'hi'
+      });
+      expect(hindiMovie).toBe('Dangal.दंगल.2016.1080P.HI.DHPictures.mp4');
+
+      const animeTitle = formatFileName({
+        title: '千と千尋の神隠し',
+        type: 'anime',
+        episode: 1,
+        quality: '1080p',
+        language: 'sub'
+      });
+      expect(animeTitle).toBe('千と千尋の神隠し.EP01.SUB.1080P.DHPictures.mp4');
+
+      const frenchTitle = formatFileName({
+        title: 'Le Fabuleux Destin d\'Amélie Poulain',
+        type: 'movie',
+        year: '2001',
+        quality: '720p',
+        language: 'en'
+      });
+      expect(frenchTitle).toBe('Le.Fabuleux.Destin.dAmélie.Poulain.2001.720P.EN.DHPictures.mp4');
     });
 
     it('formats large episode numbers (e.g. One Piece ep 1085) without truncation', () => {
@@ -399,6 +434,77 @@ describe('Download Service & Link Builder Tests', () => {
         expect(err.commands.vlc).toContain('vlc "https://vidcore.net/movie/969681"');
       }
     });
+
+    it('wraps direct stream fetch network/CORS failure into CORS_RESTRICTED with CLI commands', async () => {
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+      try {
+        await triggerBrowserDownload({
+          url: 'https://cdn.example.com/protected/video.mp4',
+          filename: 'ProtectedVideo.1080P.EN.DHPictures.mp4'
+        });
+        expect.unreachable('Should have thrown CORS_RESTRICTED');
+      } catch (err) {
+        expect(err.code).toBe('CORS_RESTRICTED');
+        expect(err.commands).toBeDefined();
+        expect(err.commands['yt-dlp']).toContain('yt-dlp "https://cdn.example.com/protected/video.mp4"');
+      } finally {
+        globalThis.fetch = origFetch;
+      }
+    });
+
+    it('rejects and prevents saving when direct URL returns text/html error page', async () => {
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: {
+          get: (name) => (name.toLowerCase() === 'content-type' ? 'text/html; charset=utf-8' : null)
+        }
+      });
+
+      await expect(
+        triggerBrowserDownload({
+          url: 'https://cdn.example.com/direct/video.mp4',
+          filename: 'video.mp4'
+        })
+      ).rejects.toThrow(/Received non-video text\/HTML response/i);
+
+      globalThis.fetch = origFetch;
+    });
+
+    it('reports progress in MB during chunked streaming even when Content-Length is missing', async () => {
+      const chunk = new Uint8Array(1024 * 1024); // 1 MB
+      let readCount = 0;
+      const mockReader = {
+        read: vi.fn().mockImplementation(() => {
+          readCount++;
+          if (readCount === 1) return Promise.resolve({ done: false, value: chunk });
+          return Promise.resolve({ done: true, value: undefined });
+        })
+      };
+
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: {
+          get: (name) => (name.toLowerCase() === 'content-type' ? 'video/mp4' : null)
+        },
+        body: { getReader: () => mockReader }
+      });
+
+      const logs = [];
+      const res = await triggerBrowserDownload({
+        url: 'https://cdn.example.com/stream.mp4',
+        filename: 'chunked.mp4',
+        onStatusChange: (s) => logs.push(s)
+      });
+
+      expect(res.success).toBe(true);
+      expect(logs.some(l => l.status === 'downloading' && l.message.includes('1.0 MB'))).toBe(true);
+
+      globalThis.fetch = origFetch;
+    });
   });
 
   describe('Synthetic 3 KB Dummy File Prevention', () => {
@@ -408,6 +514,75 @@ describe('Download Service & Link Builder Tests', () => {
 
     it('exports downloadVideoFile alias to triggerBrowserDownload', () => {
       expect(downloadVideoFile).toBe(triggerBrowserDownload);
+    });
+  });
+
+  describe('copyTextToClipboard Utility', () => {
+    it('returns false for empty or null text', async () => {
+      expect(await copyTextToClipboard('')).toBe(false);
+      expect(await copyTextToClipboard(null)).toBe(false);
+    });
+
+    it('uses navigator.clipboard.writeText when available', async () => {
+      const origClipboard = globalThis.navigator?.clipboard;
+      let writtenText = '';
+
+      if (!globalThis.navigator) {
+        globalThis.navigator = {};
+      }
+      globalThis.navigator.clipboard = {
+        writeText: vi.fn().mockImplementation(async (text) => {
+          writtenText = text;
+        })
+      };
+
+      const result = await copyTextToClipboard('yt-dlp test command');
+      expect(result).toBe(true);
+      expect(writtenText).toBe('yt-dlp test command');
+
+      if (origClipboard) {
+        globalThis.navigator.clipboard = origClipboard;
+      } else {
+        delete globalThis.navigator.clipboard;
+      }
+    });
+
+    it('falls back to document.execCommand when navigator.clipboard is unavailable', async () => {
+      const origClipboard = globalThis.navigator?.clipboard;
+      if (globalThis.navigator) {
+        delete globalThis.navigator.clipboard;
+      }
+
+      let execCommandCalled = false;
+      const origDocument = globalThis.document;
+      globalThis.document = {
+        createElement: () => ({
+          value: '',
+          style: {},
+          setAttribute: vi.fn(),
+          focus: vi.fn(),
+          select: vi.fn(),
+          parentNode: { removeChild: vi.fn() }
+        }),
+        body: {
+          appendChild: vi.fn()
+        },
+        execCommand: (cmd) => {
+          if (cmd === 'copy') {
+            execCommandCalled = true;
+            return true;
+          }
+          return false;
+        }
+      };
+
+      const result = await copyTextToClipboard('fallback test');
+      expect(result).toBe(true);
+      expect(execCommandCalled).toBe(true);
+
+      if (origClipboard) globalThis.navigator.clipboard = origClipboard;
+      if (origDocument) globalThis.document = origDocument;
+      else delete globalThis.document;
     });
   });
 });

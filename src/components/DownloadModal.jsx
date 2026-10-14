@@ -30,7 +30,8 @@ import {
   getAvailableDownloadServers,
   getEstimatedSize,
   isDirectMediaStream,
-  triggerBrowserDownload
+  triggerBrowserDownload,
+  copyTextToClipboard
 } from '../services/downloadService';
 
 const TMDB_FALLBACK_POSTER = 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg';
@@ -48,7 +49,8 @@ export default function DownloadModal({
   const isAnime = media?.type === 'anime';
   const isHindi = media?.isHindi || media?.preferredServer === 'server6';
 
-  const defaultServer = isAnime ? 'anime' : isHindi ? 'server6' : (initialServer || 'server1');
+  const safeInitialServer = (initialServer && initialServer !== 'trailer') ? initialServer : null;
+  const defaultServer = safeInitialServer || (isAnime ? 'anime' : isHindi ? 'server6' : 'server1');
   const defaultLanguage = isAnime ? (initialLanguage === 'dub' ? 'dub' : 'sub') : (isHindi ? 'hi' : (initialLanguage || 'en'));
 
   const [selectedQuality, setSelectedQuality] = useState('1080p');
@@ -127,36 +129,49 @@ export default function DownloadModal({
     filename
   });
 
-  const handleCopyCommand = (tool = commandTool) => {
+  const handleCopyCommand = async (tool = commandTool) => {
     const cmd = getDownloadCommand(tool, { url: downloadUrl, filename });
     if (!cmd) return;
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(cmd);
-    }
+    setCommandTool(tool);
+    const copiedOk = await copyTextToClipboard(cmd);
     setCommandCopied(true);
     setCopiedToolBadge(tool);
-    setActionNotification({
-      type: 'success',
-      title: `${tool.toUpperCase()} Command Copied to Clipboard!`,
-      message: `Paste into Terminal or PowerShell to download the complete full ${estimatedSize} video file directly to your disk.`
-    });
+    if (copiedOk) {
+      setActionNotification({
+        type: 'success',
+        title: `${tool.toUpperCase()} Command Copied to Clipboard!`,
+        message: `Paste into Terminal or PowerShell to download the complete full ${estimatedSize} video file directly to your disk.`
+      });
+    } else {
+      setActionNotification({
+        type: 'cors_info',
+        title: `${tool.toUpperCase()} Command Ready`,
+        message: `Please copy the command from the code box above (Ctrl+C) and paste into Terminal / PowerShell.`
+      });
+    }
     setTimeout(() => {
       setCommandCopied(false);
       setCopiedToolBadge('');
     }, 2500);
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     if (!downloadUrl) return;
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(downloadUrl);
-    }
+    const copiedOk = await copyTextToClipboard(downloadUrl);
     setCopied(true);
-    setActionNotification({
-      type: 'success',
-      title: 'Stream URL Copied!',
-      message: 'Direct stream URL copied to clipboard. Ready for paste into 1DM, IDM, or browser download extensions.'
-    });
+    if (copiedOk) {
+      setActionNotification({
+        type: 'success',
+        title: 'Stream URL Copied!',
+        message: 'Direct stream URL copied to clipboard. Ready for paste into 1DM, IDM, or browser download extensions.'
+      });
+    } else {
+      setActionNotification({
+        type: 'cors_info',
+        title: 'Stream URL Ready',
+        message: 'Please copy the direct stream URL for 1DM, IDM, or browser extensions.'
+      });
+    }
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -164,12 +179,13 @@ export default function DownloadModal({
   const handleStartDownload = async () => {
     if (!isDirectMedia) {
       // Third-party embed stream server: Browser CORS restricts client-side scrape
-      // Copy yt-dlp command and provide transparent guidance instead of generating a 3 KB dummy file
-      handleCopyCommand('yt-dlp');
+      // Copy yt-dlp/selected tool command and provide transparent guidance instead of generating a 3 KB dummy file
+      const toolToUse = commandTool || 'yt-dlp';
+      await handleCopyCommand(toolToUse);
       setActionNotification({
         type: 'cors_info',
-        title: 'Browser CORS Notice — yt-dlp Command Copied!',
-        message: `Commercial embed servers host streams inside cross-origin iframes where browser CORS prevents in-browser scraping. Run the copied yt-dlp command in Terminal / PowerShell to download the complete full ${estimatedSize} video file in ${selectedQuality}.`
+        title: `Browser CORS Notice — ${toolToUse.toUpperCase()} Command Copied!`,
+        message: `Commercial embed servers host streams inside cross-origin iframes where browser CORS prevents in-browser scraping. Run the copied ${toolToUse} command in Terminal / PowerShell to download the complete full ${estimatedSize} video file in ${selectedQuality}.`
       });
       return;
     }
@@ -196,7 +212,7 @@ export default function DownloadModal({
     } catch (err) {
       console.error('Download error:', err);
       if (err.code === 'CORS_RESTRICTED' || err.isEmbedServer) {
-        handleCopyCommand('yt-dlp');
+        await handleCopyCommand('yt-dlp');
         setStatusMessage('Browser CORS restricted: yt-dlp command copied to clipboard for direct full video download.');
       } else {
         setStatusMessage('Direct file download encountered an error. Please use the 1-click yt-dlp or IDM command.');
@@ -530,47 +546,62 @@ export default function DownloadModal({
               <span className="cli-quick-label">Quick Copy:</span>
               <button
                 type="button"
-                className="cli-chip-btn highlight"
-                onClick={() => handleCopyCommand('yt-dlp')}
+                className={`cli-chip-btn ${commandTool === 'yt-dlp' ? 'active-tool' : ''} highlight`}
+                onClick={() => {
+                  setCommandTool('yt-dlp');
+                  handleCopyCommand('yt-dlp');
+                }}
                 title="Copy yt-dlp command to download full video file in high quality"
               >
-                <Terminal size={12} />
+                {commandCopied && copiedToolBadge === 'yt-dlp' ? <Check size={12} className="text-green" /> : <Terminal size={12} />}
                 <span>yt-dlp (Full Video)</span>
               </button>
               <button
                 type="button"
-                className="cli-chip-btn"
-                onClick={() => handleCopyCommand('idm')}
+                className={`cli-chip-btn ${commandTool === 'idm' ? 'active-tool' : ''}`}
+                onClick={() => {
+                  setCommandTool('idm');
+                  handleCopyCommand('idm');
+                }}
                 title="Copy Internet Download Manager command"
               >
-                <Download size={12} />
+                {commandCopied && copiedToolBadge === 'idm' ? <Check size={12} className="text-green" /> : <Download size={12} />}
                 <span>IDM (Internet Download Manager)</span>
               </button>
               <button
                 type="button"
-                className="cli-chip-btn"
-                onClick={() => handleCopyCommand('aria2c')}
+                className={`cli-chip-btn ${commandTool === 'aria2c' ? 'active-tool' : ''}`}
+                onClick={() => {
+                  setCommandTool('aria2c');
+                  handleCopyCommand('aria2c');
+                }}
                 title="Copy aria2c 16-connection multi-threaded download command"
               >
-                <Sparkles size={12} />
+                {commandCopied && copiedToolBadge === 'aria2c' ? <Check size={12} className="text-green" /> : <Sparkles size={12} />}
                 <span>aria2c (16-thread)</span>
               </button>
               <button
                 type="button"
-                className="cli-chip-btn"
-                onClick={() => handleCopyCommand('ffmpeg')}
+                className={`cli-chip-btn ${commandTool === 'ffmpeg' ? 'active-tool' : ''}`}
+                onClick={() => {
+                  setCommandTool('ffmpeg');
+                  handleCopyCommand('ffmpeg');
+                }}
                 title="Copy ffmpeg stream copy command"
               >
-                <Film size={12} />
+                {commandCopied && copiedToolBadge === 'ffmpeg' ? <Check size={12} className="text-green" /> : <Film size={12} />}
                 <span>ffmpeg</span>
               </button>
               <button
                 type="button"
-                className="cli-chip-btn"
-                onClick={() => handleCopyCommand('vlc')}
+                className={`cli-chip-btn ${commandTool === 'vlc' ? 'active-tool' : ''}`}
+                onClick={() => {
+                  setCommandTool('vlc');
+                  handleCopyCommand('vlc');
+                }}
                 title="Copy VLC network stream play command"
               >
-                <Play size={12} />
+                {commandCopied && copiedToolBadge === 'vlc' ? <Check size={12} className="text-green" /> : <Play size={12} />}
                 <span>VLC Stream</span>
               </button>
             </div>
@@ -729,11 +760,11 @@ export default function DownloadModal({
             <button
               type="button"
               className="btn-download-action primary"
-              onClick={() => handleCopyCommand('yt-dlp')}
-              title="Copy 1-click yt-dlp command to download full movie/episode directly to your PC"
+              onClick={() => handleCopyCommand(commandTool || 'yt-dlp')}
+              title={`Copy 1-click ${commandTool || 'yt-dlp'} command to download full movie/episode directly to your PC`}
             >
               <Terminal size={18} />
-              <span>{commandCopied && copiedToolBadge === 'yt-dlp' ? 'yt-dlp Command Copied!' : 'Copy 1-Click yt-dlp Command'}</span>
+              <span>{commandCopied && copiedToolBadge === (commandTool || 'yt-dlp') ? `${(commandTool || 'yt-dlp').toUpperCase()} Command Copied!` : `Copy 1-Click ${(commandTool || 'yt-dlp').toUpperCase()} Command`}</span>
             </button>
           )}
 
