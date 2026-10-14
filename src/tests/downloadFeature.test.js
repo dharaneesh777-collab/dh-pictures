@@ -8,7 +8,9 @@ import {
   getEstimatedSize,
   QUALITY_OPTIONS,
   AUDIO_OPTIONS,
-  triggerBrowserDownload
+  createMp4Blob,
+  triggerBrowserDownload,
+  downloadVideoFile
 } from '../services/downloadService';
 
 describe('Download Service & Link Builder Tests', () => {
@@ -253,6 +255,112 @@ describe('Download Service & Link Builder Tests', () => {
       expect(statusUpdates.length).toBeGreaterThanOrEqual(3);
       expect(statusUpdates[statusUpdates.length - 1].status).toBe('completed');
       expect(statusUpdates[statusUpdates.length - 1].progress).toBe(100);
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe('createMp4Blob ISO Container Generation', () => {
+    it('generates a valid MP4 ISO container blob with video/mp4 MIME type', async () => {
+      const blob = createMp4Blob({
+        title: 'Spider-Man: Brand New Day',
+        quality: '1080p',
+        filename: 'Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4'
+      });
+
+      expect(blob).toBeDefined();
+      expect(blob.type).toBe('video/mp4');
+      expect(blob.size).toBeGreaterThan(100);
+
+      // Verify MP4 header box tags (ftyp, moov, mdat)
+      const buffer = await blob.arrayBuffer();
+      const text = new TextDecoder('latin1').decode(buffer);
+      expect(text).toContain('ftyp');
+      expect(text).toContain('isom');
+      expect(text).toContain('moov');
+      expect(text).toContain('mdat');
+      expect(text).toContain('DH Pictures Universal Stream Downloader');
+      expect(text).toContain('1080p');
+    });
+
+    it('adapts container video track dimensions based on selected quality', async () => {
+      const blob720 = createMp4Blob({ quality: '720p' });
+      const text720 = new TextDecoder('latin1').decode(await blob720.arrayBuffer());
+      expect(text720).toContain('1280x720');
+
+      const blob480 = createMp4Blob({ quality: '480p' });
+      const text480 = new TextDecoder('latin1').decode(await blob480.arrayBuffer());
+      expect(text480).toContain('854x480');
+    });
+
+    it('exports downloadVideoFile alias to triggerBrowserDownload', () => {
+      expect(downloadVideoFile).toBe(triggerBrowserDownload);
+    });
+  });
+
+  describe('triggerBrowserDownload DOM local file saving', () => {
+    it('sets link.download attribute and triggers local blob download in DOM environment', async () => {
+      vi.useFakeTimers();
+
+      let createdElement = null;
+      let clicked = false;
+      const fakeBlobUrl = 'blob:http://localhost/fake-video-uuid-1234';
+
+      const origDocument = globalThis.document;
+      const origCreateObjectURL = globalThis.URL.createObjectURL;
+      const origRevokeObjectURL = globalThis.URL.revokeObjectURL;
+
+      globalThis.document = {
+        createElement: (tag) => {
+          createdElement = {
+            tagName: tag,
+            href: '',
+            download: '',
+            style: {},
+            parentNode: null,
+            click: () => { clicked = true; }
+          };
+          return createdElement;
+        },
+        body: {
+          appendChild: (el) => {
+            el.parentNode = globalThis.document.body;
+            return el;
+          },
+          removeChild: (el) => {
+            el.parentNode = null;
+            return el;
+          }
+        }
+      };
+
+      globalThis.URL.createObjectURL = vi.fn().mockReturnValue(fakeBlobUrl);
+      globalThis.URL.revokeObjectURL = vi.fn();
+
+      const downloadPromise = triggerBrowserDownload({
+        url: 'https://vidcore.net/movie/969681',
+        filename: 'Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4',
+        quality: '1080p'
+      });
+
+      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(350);
+
+      const result = await downloadPromise;
+
+      expect(result.success).toBe(true);
+      expect(result.downloadedViaBlob).toBe(true);
+      expect(createdElement).not.toBeNull();
+      expect(createdElement.download).toBe('Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4');
+      expect(createdElement.href).toBe(fakeBlobUrl);
+      expect(clicked).toBe(true);
+
+      // Restore globals
+      if (origDocument) globalThis.document = origDocument;
+      else delete globalThis.document;
+
+      globalThis.URL.createObjectURL = origCreateObjectURL;
+      globalThis.URL.revokeObjectURL = origRevokeObjectURL;
 
       vi.useRealTimers();
     });

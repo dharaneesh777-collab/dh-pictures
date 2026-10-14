@@ -2827,6 +2827,19 @@ body {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.btn-download-action.watch-tab {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+.btn-download-action.watch-tab:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: #60a5fa;
+  color: #93c5fd;
+  transform: translateY(-1px);
+}
+
 .btn-download-action.tertiary {
   background: transparent;
   border: 1px solid var(--border-subtle);

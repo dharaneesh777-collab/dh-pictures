@@ -113,6 +113,8 @@ export default function DownloadModal({
       await triggerBrowserDownload({
         url: downloadUrl,
         filename,
+        media,
+        quality: selectedQuality,
         onStatusChange: ({ progress, message, status }) => {
           setDownloadProgress(progress);
           setStatusMessage(message);
@@ -123,7 +125,7 @@ export default function DownloadModal({
       });
     } catch (err) {
       console.error('Download error:', err);
-      setStatusMessage('Direct trigger failed. Click "Open Direct Mirror" below.');
+      setStatusMessage('Direct file download failed. Please try again or copy the 1-click CLI command.');
     } finally {
       setIsDownloading(false);
     }
@@ -477,13 +479,13 @@ export default function DownloadModal({
             </div>
             <ol className="download-guide-list">
               <li>
-                <strong>Option 1 (Fastest CLI Download):</strong> Copy the <code>yt-dlp</code> or <code>IDM</code> command above and paste it in Terminal/PowerShell to download at full speed with multi-threading.
+                <strong>Option 1 (Direct Local File Download):</strong> Click the green <strong>"Download Video File (.mp4)"</strong> button below to save the video file directly into your device's local Downloads folder.
               </li>
               <li>
-                <strong>Option 2 (Direct in Browser):</strong> Click <strong>"Download / Launch Stream"</strong> below or toggle <strong>"Launch In-App Player Preview"</strong>. Right-click the video and select <strong>"Save Video As..."</strong> (or press <strong>Ctrl+S</strong>).
+                <strong>Option 2 (1-Click Fast CLI Download):</strong> Copy the <code>yt-dlp</code>, <code>IDM</code>, or <code>aria2c</code> command above and paste it into Terminal / PowerShell to download at multi-threaded speed.
               </li>
               <li>
-                <strong>Option 3 (Download Managers):</strong> Paste the stream URL into <strong>IDM</strong>, <strong>1DM</strong>, or <strong>VLC Media Player</strong> (<em>Media &gt; Open Network Stream</em>).
+                <strong>Option 3 (Watch in Browser):</strong> Click <strong>"Watch Stream in New Tab"</strong> or launch the in-app player below if you want to stream directly without saving a file.
               </li>
             </ol>
           </div>
@@ -494,9 +496,9 @@ export default function DownloadModal({
               <div className="progress-info-row">
                 <span className="status-text">
                   {downloadComplete ? (
-                    <span className="status-complete"><CheckCircle2 size={16} /> Mirror Launched Successfully</span>
+                    <span className="status-complete"><CheckCircle2 size={16} /> Video File Saved to Downloads Folder!</span>
                   ) : (
-                    <span>{statusMessage || 'Preparing stream mirror...'}</span>
+                    <span>{statusMessage || 'Preparing video download...'}</span>
                   )}
                 </span>
                 <span className="progress-percent">{downloadProgress}%</span>
@@ -510,7 +512,7 @@ export default function DownloadModal({
               {downloadComplete && (
                 <div className="download-success-tip">
                   <CheckCircle2 size={15} className="text-green" />
-                  <span>Stream mirror opened! You can right-click the player to save the video, or run the yt-dlp command.</span>
+                  <span>Successfully downloaded <strong>{filename}</strong>! Check your device's Downloads folder.</span>
                 </div>
               )}
             </div>
@@ -524,31 +526,32 @@ export default function DownloadModal({
             className="btn-download-action primary"
             onClick={handleStartDownload}
             disabled={isDownloading}
+            title="Download video file directly to your local Downloads folder"
           >
             <Download size={18} />
-            <span>{isDownloading ? 'Opening Mirror...' : 'Download / Launch Stream'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn-download-action secondary"
-            onClick={handleCopyCommand}
-            title="Copy 1-click terminal command"
-          >
-            {commandCopied ? <Check size={16} className="text-green" /> : <Terminal size={16} />}
-            <span>{commandCopied ? 'Command Copied!' : 'Copy Download Cmd'}</span>
+            <span>{isDownloading ? 'Downloading Video File...' : 'Download Video File (.mp4)'}</span>
           </button>
 
           <a
             href={downloadUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-download-action tertiary"
-            title="Open direct streaming mirror in a new browser tab"
+            className="btn-download-action watch-tab"
+            title="Open streaming player in a new browser tab to watch immediately"
           >
             <ExternalLink size={16} />
-            <span>Direct Mirror Link</span>
+            <span>Watch Stream in New Tab</span>
           </a>
+
+          <button
+            type="button"
+            className="btn-download-action secondary"
+            onClick={handleCopyCommand}
+            title="Copy 1-click terminal command (yt-dlp, IDM, ffmpeg)"
+          >
+            {commandCopied ? <Check size={16} className="text-green" /> : <Terminal size={16} />}
+            <span>{commandCopied ? 'Command Copied!' : 'Copy Download Cmd'}</span>
+          </button>
 
           <button
             type="button"
@@ -564,7 +567,7 @@ export default function DownloadModal({
         {/* Helper footer text */}
         <div className="download-footer-tip">
           <ShieldCheck size={13} className="text-green" />
-          <span>Real CDN Stream Mirrors — Zero 404s. Supports yt-dlp, ffmpeg, IDM, 1DM, and VLC.</span>
+          <span>Real Local File Downloads — Saves .mp4 directly to disk. Supports yt-dlp, ffmpeg, IDM, 1DM, and VLC.</span>
         </div>
       </div>
     </div>
