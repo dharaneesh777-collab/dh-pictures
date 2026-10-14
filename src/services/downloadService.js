@@ -213,306 +213,176 @@ export function getEstimatedSize(mediaType, qualityId) {
   return mediaType === 'movie' ? q.movieSize : q.episodeSize;
 }
 
-// Valid Baseline H.264 AVC1 MP4 container template with compliant ISO atoms
-// (ftyp, moov -> mvhd, trak -> tkhd, edts, mdia -> mdhd, hdlr, minf -> vmhd, dinf/dref, stbl -> stsd[avc1], stts, stsc, stsz, stco, mdat)
-const BASE_H264_MP4_B64 =
-  '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XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXgAAAAdBmjgZ4A5mAAAACEGaVAZ4A5mAAAAAB0GaYDPAHMwAAAAHQZqAM8AczAAAAAdBmqAzwBzMAAAAB0GawDPAHMwAAAAHQZrgM8AczAAAAAdBmwAzwBzMAAAAB0GbIDPAHMwAAAAHQZtAM8AczAAAAAdBm2AzwBzMAAAAB0GbgDPAHMwAAAAHQZugM8AczAAAAAdBm8AzwBzMAAAAB0Gb4DPAHMwAAAAHQZoAM8AczAAAAAdBmiAzwBzMAAAAB0GaQDPAHMwAAAAHQZpgM8AczAAAAAdBmoAzwBzMAAAAB0GaoDPAHMwAAAAHQZrAL8AczAAAAAdBmuAvwBzMAAAAB0GbACvAHMw=';
-
-function decodeBase64(str) {
-  if (typeof Buffer !== 'undefined') {
-    return new Uint8Array(Buffer.from(str, 'base64'));
+/**
+ * Detect whether a given URL points to an accessible direct media file (.mp4, .mkv, blob, etc.)
+ * versus a protected third-party embed player iframe (vixsrc, vidcore, screenscape, megaplay, etc.)
+ */
+export function isDirectMediaStream(url) {
+  if (!url || typeof url !== 'string') return false;
+  const cleanUrl = url.trim().toLowerCase();
+  if (cleanUrl.startsWith('blob:') || cleanUrl.startsWith('data:')) {
+    return true;
   }
-  const bin = atob(str);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) {
-    out[i] = bin.charCodeAt(i);
+  try {
+    const parsed = new URL(cleanUrl, 'http://localhost');
+    const pathname = parsed.pathname.toLowerCase();
+    return /\.(mp4|mkv|webm|ts|m4s|mp3|m4a|aac)$/i.test(pathname);
+  } catch {
+    return /\.(mp4|mkv|webm|ts|m4s)(\?|$)/i.test(cleanUrl);
   }
-  return out;
-}
-
-function toAsciiBytes(str) {
-  const out = new Uint8Array(str.length);
-  for (let i = 0; i < str.length; i++) {
-    out[i] = str.charCodeAt(i) & 0xff;
-  }
-  return out;
-}
-
-function findBytePattern(source, pattern, fromIndex = 0) {
-  const pLen = pattern.length;
-  const sLen = source.length;
-  for (let i = fromIndex; i <= sLen - pLen; i++) {
-    let match = true;
-    for (let j = 0; j < pLen; j++) {
-      if (source[i + j] !== pattern[j]) {
-        match = false;
-        break;
-      }
-    }
-    if (match) return i;
-  }
-  return -1;
-}
-
-function writeUInt16(arr, val, offset) {
-  arr[offset] = (val >>> 8) & 0xff;
-  arr[offset + 1] = val & 0xff;
-}
-
-function writeUInt32(arr, val, offset) {
-  arr[offset] = (val >>> 24) & 0xff;
-  arr[offset + 1] = (val >>> 16) & 0xff;
-  arr[offset + 2] = (val >>> 8) & 0xff;
-  arr[offset + 3] = val & 0xff;
 }
 
 /**
- * Generates an authentic ISO-14496-12 compliant MP4 file containing a valid baseline H.264
- * video stream track with avc1 codec atoms, sample tables, and embedded media metadata.
- * Can be opened and played in any standard media player (VLC, QuickTime, Windows Media Player).
+ * @deprecated Synthetic 3 KB placeholder MP4 generation has been permanently disabled.
+ * Never generate or deliver a synthetic dummy file that claims to be a full video.
  */
-export function createMp4Blob({
-  title = 'DH Pictures Media',
-  quality = '1080p',
-  filename = 'video.mp4',
-  media = null
-} = {}) {
-  // Resolution parameters
-  const is360 = quality === '360p';
-  const is480 = quality === '480p';
-  const is720 = quality === '720p';
-  const width = is360 ? 640 : is480 ? 854 : is720 ? 1280 : 1920;
-  const height = is360 ? 360 : is480 ? 480 : is720 ? 720 : 1080;
-
-  const baseBytes = decodeBase64(BASE_H264_MP4_B64);
-  const containerBytes = new Uint8Array(baseBytes);
-
-  // Update track header (tkhd) visual dimensions (fixed-point 16.16)
-  const tkhdIdx = findBytePattern(containerBytes, toAsciiBytes('tkhd'));
-  if (tkhdIdx !== -1) {
-    writeUInt16(containerBytes, width, tkhdIdx + 80);
-    writeUInt16(containerBytes, 0, tkhdIdx + 82);
-    writeUInt16(containerBytes, height, tkhdIdx + 84);
-    writeUInt16(containerBytes, 0, tkhdIdx + 86);
-  }
-
-  // Update avc1 visual sample entry dimensions
-  const stsdIdx = findBytePattern(containerBytes, toAsciiBytes('stsd'));
-  if (stsdIdx !== -1) {
-    const avc1Idx = findBytePattern(containerBytes, toAsciiBytes('avc1'), stsdIdx);
-    if (avc1Idx !== -1) {
-      writeUInt16(containerBytes, width, avc1Idx + 28);
-      writeUInt16(containerBytes, height, avc1Idx + 30);
-    }
-  }
-
-  // Append user metadata packet inside a standard ISO 'free' padding box
-  const metaObj = {
-    generator: 'DH Pictures Universal Stream Downloader',
-    title: String(title || 'Video Stream'),
-    quality: String(quality || '1080p'),
-    resolution: `${width}x${height}`,
-    format: 'MP4 (H.264 / AAC)',
-    filename: String(filename || 'video.mp4'),
-    timestamp: new Date().toISOString(),
-    mediaId: media?.id || null
-  };
-  const metaText = '\n' + JSON.stringify(metaObj, null, 2) + '\n';
-  const metaBytes = new TextEncoder().encode(metaText);
-
-  const freeBoxSize = 8 + metaBytes.length;
-  const freeBox = new Uint8Array(freeBoxSize);
-  writeUInt32(freeBox, freeBoxSize, 0);
-  freeBox.set(toAsciiBytes('free'), 4);
-  freeBox.set(metaBytes, 8);
-
-  const finalLength = containerBytes.length + freeBox.length;
-  const merged = new Uint8Array(finalLength);
-  merged.set(containerBytes, 0);
-  merged.set(freeBox, containerBytes.length);
-
-  return new Blob([merged], { type: 'video/mp4' });
+export function createMp4Blob() {
+  throw new Error(
+    'Synthetic placeholder MP4 generation has been permanently removed to prevent delivering dummy files. Real video files must be downloaded directly or via yt-dlp/IDM.'
+  );
 }
 
 /**
  * Triggers a real client-side local file download directly to the user's Downloads folder.
- * If direct stream bytes are accessible, it streams and saves the media blob.
- * For embed mirrors protected by CORS, it generates a fully compliant ISO MP4 container
- * and downloads it locally via a same-origin Blob URL without opening tabs.
+ * - For direct media sources (direct .mp4, .mkv, blob), it streams real chunks and saves the actual file.
+ * - For third-party embed servers (vixsrc, vidcore, screenscape, etc.), in-browser scraping
+ *   is blocked by standard browser Same-Origin Policy (CORS). Instead of creating a misleading 3 KB mock file,
+ *   it rejects with CORS restriction details and working CLI commands (yt-dlp, IDM, aria2c).
  */
-export function triggerBrowserDownload({
+export async function triggerBrowserDownload({
   url,
   filename = 'download.mp4',
-  media = null,
+  media: _media = null,
   quality = '1080p',
   onStatusChange,
   directStreamUrl = null
 }) {
   if (!url && !directStreamUrl) {
-    return Promise.reject(new Error('Missing download URL'));
+    throw new Error('Missing download URL');
   }
 
   const effectiveUrl = directStreamUrl || url;
+  const isDirect = isDirectMediaStream(effectiveUrl);
+
+  if (!isDirect) {
+    if (typeof onStatusChange === 'function') {
+      onStatusChange({
+        status: 'cors_restricted',
+        progress: 0,
+        message: 'Direct in-browser download is restricted by browser CORS for embed stream servers. Please use yt-dlp or IDM command.'
+      });
+    }
+
+    const error = new Error(
+      'In-browser direct video downloads are restricted by browser Same-Origin Policy (CORS) for third-party embed stream servers. Please use yt-dlp, IDM, or aria2c to download the full video file.'
+    );
+    error.code = 'CORS_RESTRICTED';
+    error.isEmbedServer = true;
+    error.url = effectiveUrl;
+    error.filename = filename;
+    error.quality = quality;
+    error.commands = getDownloadCommands({ url: effectiveUrl, filename });
+    throw error;
+  }
 
   if (typeof onStatusChange === 'function') {
     onStatusChange({
       status: 'starting',
-      progress: 15,
-      message: 'Connecting to direct streaming mirror...'
+      progress: 10,
+      message: 'Connecting to direct streaming source...'
     });
   }
 
-  const isDirectMedia = Boolean(
-    directStreamUrl ||
-    (effectiveUrl && effectiveUrl.startsWith('blob:')) ||
-    /\.(mp4|mkv|webm|ts|m4s)(\?|$)/i.test(effectiveUrl)
-  );
+  const response = await fetch(effectiveUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch media stream (${response.status}: ${response.statusText})`);
+  }
 
-  return new Promise((resolve) => {
-    // If direct media source is provided, stream real chunks
-    if (isDirectMedia && typeof fetch === 'function') {
-      fetch(effectiveUrl)
-        .then(async (response) => {
-          if (response.ok && response.body) {
-            const contentLength = Number(response.headers.get('content-length')) || 0;
-            const reader = response.body.getReader();
-            const chunks = [];
-            let loaded = 0;
+  const contentLength = Number(response.headers.get('content-length')) || 0;
+  let downloadedBlob = null;
 
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              chunks.push(value);
-              loaded += value.length;
+  if (response.body && typeof response.body.getReader === 'function') {
+    const reader = response.body.getReader();
+    const chunks = [];
+    let loaded = 0;
 
-              if (contentLength > 0 && typeof onStatusChange === 'function') {
-                const progress = Math.min(95, Math.max(15, Math.round((loaded / contentLength) * 100)));
-                onStatusChange({
-                  status: 'downloading',
-                  progress,
-                  message: `Downloading video stream: ${progress}% (${(loaded / 1048576).toFixed(1)} MB)...`
-                });
-              }
-            }
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.length;
 
-            const blob = new Blob(chunks, {
-              type: response.headers.get('content-type') || 'video/mp4'
-            });
-            finalizeDownload(blob, resolve);
-            return;
-          }
-          runStagedFallback(resolve);
-        })
-        .catch(() => {
-          runStagedFallback(resolve);
-        });
-      return;
-    }
-
-    runStagedFallback(resolve);
-  });
-
-  function runStagedFallback(resolve) {
-    // Stage 1: Fetching video stream segments
-    setTimeout(() => {
-      if (typeof onStatusChange === 'function') {
+      if (contentLength > 0 && typeof onStatusChange === 'function') {
+        const progress = Math.min(99, Math.max(10, Math.round((loaded / contentLength) * 100)));
         onStatusChange({
           status: 'downloading',
-          progress: 55,
-          message: `Downloading video stream segments (${quality})...`
+          progress,
+          message: `Downloading video stream: ${progress}% (${(loaded / 1048576).toFixed(1)} MB)...`
         });
       }
-    }, 150);
+    }
 
-    // Stage 2: Assembling and packaging MP4 container
-    setTimeout(() => {
-      if (typeof onStatusChange === 'function') {
-        onStatusChange({
-          status: 'packaging',
-          progress: 85,
-          message: `Packaging MP4 file: ${filename}...`
-        });
-      }
-    }, 350);
+    downloadedBlob = new Blob(chunks, {
+      type: response.headers.get('content-type') || 'video/mp4'
+    });
+  } else {
+    downloadedBlob = await response.blob();
+  }
 
-    // Stage 3: Generate MP4 Blob and trigger native browser file download
+  // Never deliver empty or synthetic dummy files
+  if (!downloadedBlob || downloadedBlob.size === 0) {
+    throw new Error('Downloaded stream is empty. Stream could not be retrieved.');
+  }
+
+  let blobUrl = '';
+  let downloadedViaBlob = false;
+
+  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+    blobUrl = URL.createObjectURL(downloadedBlob);
+  }
+
+  if (typeof document !== 'undefined') {
+    const link = document.createElement('a');
+    link.href = blobUrl || effectiveUrl;
+    link.download = filename || 'download.mp4';
+    if (!blobUrl) {
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+    }
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+
     setTimeout(() => {
-      let blob = null;
       try {
-        blob = createMp4Blob({
-          title: media?.title || filename.replace(/\.mp4$/i, ''),
-          quality,
-          filename,
-          media
-        });
-      } catch (err) {
-        console.warn('Blob generation warning:', err);
-      }
-
-      finalizeDownload(blob, resolve);
-    }, 500);
-  }
-
-  function finalizeDownload(downloadedBlob, resolve) {
-    let blobUrl = '';
-    let downloadedViaBlob = false;
-
-    try {
-      if (downloadedBlob && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
-        blobUrl = URL.createObjectURL(downloadedBlob);
-      }
-    } catch (err) {
-      console.warn('Blob URL generation warning:', err);
-    }
-
-    try {
-      if (typeof document !== 'undefined') {
-        const link = document.createElement('a');
-        link.href = blobUrl || effectiveUrl;
-        link.download = filename || 'download.mp4';
-        if (!blobUrl) {
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
+        if (link.parentNode) link.parentNode.removeChild(link);
+        if (blobUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+          URL.revokeObjectURL(blobUrl);
         }
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-
-        setTimeout(() => {
-          try {
-            if (link.parentNode) link.parentNode.removeChild(link);
-            if (blobUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
-              URL.revokeObjectURL(blobUrl);
-            }
-          } catch {
-            // Ignore cleanup errors
-          }
-        }, 1000);
-        downloadedViaBlob = Boolean(blobUrl);
+      } catch {
+        // ignore cleanup errors
       }
-    } catch (err) {
-      console.warn('Download link trigger error:', err);
-    }
-
-    setTimeout(() => {
-      if (typeof onStatusChange === 'function') {
-        onStatusChange({
-          status: 'completed',
-          progress: 100,
-          message: `Video file (${filename}) saved to your local Downloads folder.`
-        });
-      }
-
-      resolve({
-        success: true,
-        filename,
-        url: effectiveUrl,
-        blob: downloadedBlob,
-        blobUrl,
-        downloadedViaBlob
-      });
-    }, 100);
+    }, 1000);
+    downloadedViaBlob = Boolean(blobUrl);
   }
+
+  if (typeof onStatusChange === 'function') {
+    onStatusChange({
+      status: 'completed',
+      progress: 100,
+      message: `Video file (${filename}) saved to your local Downloads folder.`
+    });
+  }
+
+  return {
+    success: true,
+    filename,
+    url: effectiveUrl,
+    blob: downloadedBlob,
+    blobUrl,
+    downloadedViaBlob,
+    size: downloadedBlob.size
+  };
 }
 
 export const downloadVideoFile = triggerBrowserDownload;

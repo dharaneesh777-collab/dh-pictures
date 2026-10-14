@@ -3008,6 +3008,251 @@ body {
   background: rgba(255, 255, 255, 0.18);
 }
 
+/* Quick 1-Click Tool Chips */
+.cli-quick-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.25rem;
+}
+
+.cli-quick-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-right: 0.2rem;
+}
+
+.cli-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cli-chip-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.cli-chip-btn.highlight {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.cli-chip-btn.highlight:hover {
+  background: rgba(16, 185, 129, 0.28);
+  color: #fff;
+}
+
+/* CORS & Stream Protection Notice Card */
+.download-cors-notice-card {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.download-cors-notice-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.download-cors-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.download-cors-text {
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.download-cors-text strong {
+  color: #fef3c7;
+}
+
+.download-cors-solution {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  color: #e2e8f0;
+  line-height: 1.5;
+  margin: 0;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.5rem 0.65rem;
+  border-radius: 4px;
+  border-left: 2px solid #10b981;
+}
+
+.download-cors-solution strong {
+  color: #34d399;
+}
+
+/* Dynamic Action Notification Banner */
+.action-notification-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 0.95rem;
+  border-radius: var(--radius-sm);
+  position: relative;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.action-notification-banner.success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.action-notification-banner.cors_info {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+.action-notification-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.action-notification-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.action-notification-content strong {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.action-notification-content p {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.action-notification-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+}
+
+.action-notification-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Browser Extension Card */
+.download-extension-card {
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.download-extension-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.download-extension-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #93c5fd;
+}
+
+.download-extension-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.download-extension-text strong {
+  color: #fff;
+}
+
+.download-extension-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
+.extension-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.extension-action-btn.primary {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+}
+
+.extension-action-btn.primary:hover {
+  background: #3b82f6;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.extension-action-btn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+}
+
+.extension-action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
 .download-guide-card {
   background: rgba(99, 102, 241, 0.06);
   border: 1px solid rgba(99, 102, 241, 0.2);

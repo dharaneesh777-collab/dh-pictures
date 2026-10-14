@@ -8,6 +8,7 @@ import {
   getEstimatedSize,
   QUALITY_OPTIONS,
   AUDIO_OPTIONS,
+  isDirectMediaStream,
   createMp4Blob,
   triggerBrowserDownload,
   downloadVideoFile
@@ -133,12 +134,12 @@ describe('Download Service & Link Builder Tests', () => {
 
     it('provides getDownloadCommands dictionary for all tools', () => {
       const cmds = getDownloadCommands({ url: testUrl, filename: testFilename });
-      expect(cmds['yt-dlp']).toContain('yt-dlp');
-      expect(cmds.ffmpeg).toContain('ffmpeg');
-      expect(cmds.curl).toContain('curl');
-      expect(cmds.vlc).toContain('vlc');
-      expect(cmds.idm).toContain('idman');
-      expect(cmds.aria2c).toContain('aria2c');
+      expect(cmds['yt-dlp']).toBe(`yt-dlp "${testUrl}" -o "${testFilename}"`);
+      expect(cmds.ffmpeg).toBe(`ffmpeg -i "${testUrl}" -c copy "${testFilename}"`);
+      expect(cmds.curl).toBe(`curl -L "${testUrl}" -o "${testFilename}"`);
+      expect(cmds.vlc).toBe(`vlc "${testUrl}"`);
+      expect(cmds.idm).toBe(`idman /d "${testUrl}" /p "%USERPROFILE%\\Downloads" /f "${testFilename}" /n /a`);
+      expect(cmds.aria2c).toBe(`aria2c -s 16 -x 16 -o "${testFilename}" "${testUrl}"`);
     });
 
     it('returns empty string if url is missing', () => {
@@ -227,167 +228,32 @@ describe('Download Service & Link Builder Tests', () => {
     });
   });
 
+  describe('isDirectMediaStream Stream Type Detection', () => {
+    it('identifies direct media video files accurately', () => {
+      expect(isDirectMediaStream('https://cdn.example.com/video.mp4')).toBe(true);
+      expect(isDirectMediaStream('https://cdn.example.com/video.mkv?token=123')).toBe(true);
+      expect(isDirectMediaStream('https://cdn.example.com/video.webm')).toBe(true);
+      expect(isDirectMediaStream('blob:http://localhost/uuid-1234')).toBe(true);
+      expect(isDirectMediaStream('data:video/mp4;base64,...')).toBe(true);
+    });
+
+    it('identifies third-party embed player URLs as non-direct streams', () => {
+      expect(isDirectMediaStream('https://vixsrc.to/movie/872585')).toBe(false);
+      expect(isDirectMediaStream('https://vidcore.net/tv/1396/1/1')).toBe(false);
+      expect(isDirectMediaStream('https://vidsrc.to/embed/movie/872585')).toBe(false);
+      expect(isDirectMediaStream('https://screenscape.me/embed?tmdb=872585&type=movie')).toBe(false);
+      expect(isDirectMediaStream('https://megaplay.buzz/stream/ani/16498/1/sub')).toBe(false);
+      expect(isDirectMediaStream('')).toBe(false);
+      expect(isDirectMediaStream(null)).toBe(false);
+    });
+  });
+
   describe('triggerBrowserDownload', () => {
     it('rejects if url is missing', async () => {
       await expect(triggerBrowserDownload({ url: '' })).rejects.toThrow('Missing download URL');
     });
 
-    it('dispatches progress updates and completes download promise', async () => {
-      vi.useFakeTimers();
-
-      const statusUpdates = [];
-      const onStatusChange = (status) => statusUpdates.push(status);
-
-      const downloadPromise = triggerBrowserDownload({
-        url: 'https://vixsrc.to/movie/123',
-        filename: 'Test.Movie.1080P.mp4',
-        onStatusChange
-      });
-
-      // Advance timers through download lifecycle
-      vi.advanceTimersByTime(300);
-      vi.advanceTimersByTime(350);
-
-      const result = await downloadPromise;
-
-      expect(result.success).toBe(true);
-      expect(result.filename).toBe('Test.Movie.1080P.mp4');
-      expect(statusUpdates.length).toBeGreaterThanOrEqual(3);
-      expect(statusUpdates[statusUpdates.length - 1].status).toBe('completed');
-      expect(statusUpdates[statusUpdates.length - 1].progress).toBe(100);
-
-      vi.useRealTimers();
-    });
-  });
-
-  describe('createMp4Blob ISO Container Generation', () => {
-    it('generates a valid MP4 ISO container blob with video/mp4 MIME type', async () => {
-      const blob = createMp4Blob({
-        title: 'Spider-Man: Brand New Day',
-        quality: '1080p',
-        filename: 'Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4'
-      });
-
-      expect(blob).toBeDefined();
-      expect(blob.type).toBe('video/mp4');
-      expect(blob.size).toBeGreaterThan(100);
-
-      // Verify MP4 header box tags (ftyp, moov, mdat)
-      const buffer = await blob.arrayBuffer();
-      const text = new TextDecoder('latin1').decode(buffer);
-      expect(text).toContain('ftyp');
-      expect(text).toContain('isom');
-      expect(text).toContain('moov');
-      expect(text).toContain('mdat');
-      expect(text).toContain('DH Pictures Universal Stream Downloader');
-      expect(text).toContain('1080p');
-    });
-
-    it('adapts container video track dimensions based on selected quality', async () => {
-      const blob720 = createMp4Blob({ quality: '720p' });
-      const text720 = new TextDecoder('latin1').decode(await blob720.arrayBuffer());
-      expect(text720).toContain('1280x720');
-
-      const blob480 = createMp4Blob({ quality: '480p' });
-      const text480 = new TextDecoder('latin1').decode(await blob480.arrayBuffer());
-      expect(text480).toContain('854x480');
-    });
-
-    it('exports downloadVideoFile alias to triggerBrowserDownload', () => {
-      expect(downloadVideoFile).toBe(triggerBrowserDownload);
-    });
-  });
-
-  describe('triggerBrowserDownload DOM local file saving', () => {
-    it('sets link.download attribute and triggers local blob download in DOM environment', async () => {
-      vi.useFakeTimers();
-
-      let createdElement = null;
-      let clicked = false;
-      const fakeBlobUrl = 'blob:http://localhost/fake-video-uuid-1234';
-
-      const origDocument = globalThis.document;
-      const origCreateObjectURL = globalThis.URL.createObjectURL;
-      const origRevokeObjectURL = globalThis.URL.revokeObjectURL;
-
-      globalThis.document = {
-        createElement: (tag) => {
-          createdElement = {
-            tagName: tag,
-            href: '',
-            download: '',
-            style: {},
-            parentNode: null,
-            click: () => { clicked = true; }
-          };
-          return createdElement;
-        },
-        body: {
-          appendChild: (el) => {
-            el.parentNode = globalThis.document.body;
-            return el;
-          },
-          removeChild: (el) => {
-            el.parentNode = null;
-            return el;
-          }
-        }
-      };
-
-      globalThis.URL.createObjectURL = vi.fn().mockReturnValue(fakeBlobUrl);
-      globalThis.URL.revokeObjectURL = vi.fn();
-
-      const downloadPromise = triggerBrowserDownload({
-        url: 'https://vidcore.net/movie/969681',
-        filename: 'Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4',
-        quality: '1080p'
-      });
-
-      vi.advanceTimersByTime(300);
-      vi.advanceTimersByTime(350);
-
-      const result = await downloadPromise;
-
-      expect(result.success).toBe(true);
-      expect(result.downloadedViaBlob).toBe(true);
-      expect(createdElement).not.toBeNull();
-      expect(createdElement.download).toBe('Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4');
-      expect(createdElement.href).toBe(fakeBlobUrl);
-      expect(clicked).toBe(true);
-
-      // Restore globals
-      if (origDocument) globalThis.document = origDocument;
-      else delete globalThis.document;
-
-      globalThis.URL.createObjectURL = origCreateObjectURL;
-      globalThis.URL.revokeObjectURL = origRevokeObjectURL;
-
-      vi.useRealTimers();
-    });
-
-    it('contains full ISO compliant atoms: avc1, stbl, minf, trak, mdia, and h264 video codec', async () => {
-      const blob = createMp4Blob({
-        title: 'Inception',
-        quality: '1080p',
-        filename: 'Inception.2010.1080P.mp4'
-      });
-      const text = new TextDecoder('latin1').decode(await blob.arrayBuffer());
-
-      expect(text).toContain('ftyp');
-      expect(text).toContain('isom');
-      expect(text).toContain('moov');
-      expect(text).toContain('trak');
-      expect(text).toContain('tkhd');
-      expect(text).toContain('mdia');
-      expect(text).toContain('minf');
-      expect(text).toContain('stbl');
-      expect(text).toContain('stsd');
-      expect(text).toContain('avc1');
-      expect(text).toContain('mdat');
-      expect(text).toContain('1920x1080');
-    });
-
-    it('handles direct media stream fetching with chunked progress reporting', async () => {
+    it('handles direct media stream fetching with chunked progress reporting and real blob delivery', async () => {
       const chunk1 = new Uint8Array([1, 2, 3, 4]);
       const chunk2 = new Uint8Array([5, 6, 7, 8]);
       let readCount = 0;
@@ -422,18 +288,126 @@ describe('Download Service & Link Builder Tests', () => {
       expect(result.success).toBe(true);
       expect(result.blob).toBeDefined();
       expect(result.blob.size).toBe(8);
+      expect(result.size).toBe(8);
       expect(progressLogs.length).toBeGreaterThanOrEqual(1);
 
       globalThis.fetch = origFetch;
     });
 
-    it('supports all 4 quality tiers and embeds metadata in container', async () => {
-      for (const q of ['1080p', '720p', '480p', '360p']) {
-        const b = createMp4Blob({ quality: q, title: 'Test Quality' });
-        const t = new TextDecoder('latin1').decode(await b.arrayBuffer());
-        expect(t).toContain(q);
-        expect(b.type).toBe('video/mp4');
+    it('triggers DOM link download with real blob URL for direct stream media', async () => {
+      let createdElement = null;
+      let clicked = false;
+      const fakeBlobUrl = 'blob:http://localhost/real-video-uuid-1234';
+
+      const origDocument = globalThis.document;
+      const origCreateObjectURL = globalThis.URL.createObjectURL;
+      const origRevokeObjectURL = globalThis.URL.revokeObjectURL;
+      const origFetch = globalThis.fetch;
+
+      globalThis.document = {
+        createElement: (tag) => {
+          createdElement = {
+            tagName: tag,
+            href: '',
+            download: '',
+            style: {},
+            parentNode: null,
+            click: () => { clicked = true; }
+          };
+          return createdElement;
+        },
+        body: {
+          appendChild: (el) => {
+            el.parentNode = globalThis.document.body;
+            return el;
+          },
+          removeChild: (el) => {
+            el.parentNode = null;
+            return el;
+          }
+        }
+      };
+
+      globalThis.URL.createObjectURL = vi.fn().mockReturnValue(fakeBlobUrl);
+      globalThis.URL.revokeObjectURL = vi.fn();
+
+      const mockReader = {
+        read: vi.fn()
+          .mockResolvedValueOnce({ done: false, value: new Uint8Array([10, 20, 30]) })
+          .mockResolvedValueOnce({ done: true, value: undefined })
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: () => 'video/mp4' },
+        body: { getReader: () => mockReader }
+      });
+
+      const result = await triggerBrowserDownload({
+        url: 'https://cdn.example.com/movies/spiderman.mp4',
+        filename: 'Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4',
+        quality: '1080p'
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.downloadedViaBlob).toBe(true);
+      expect(createdElement).not.toBeNull();
+      expect(createdElement.download).toBe('Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4');
+      expect(createdElement.href).toBe(fakeBlobUrl);
+      expect(clicked).toBe(true);
+
+      // Restore globals
+      if (origDocument) globalThis.document = origDocument;
+      else delete globalThis.document;
+      globalThis.URL.createObjectURL = origCreateObjectURL;
+      globalThis.URL.revokeObjectURL = origRevokeObjectURL;
+      globalThis.fetch = origFetch;
+    });
+
+    it('rejects and never delivers synthetic 3 KB dummy files for embed stream servers (CORS restriction)', async () => {
+      const statusLogs = [];
+      const onStatusChange = (status) => statusLogs.push(status);
+
+      await expect(
+        triggerBrowserDownload({
+          url: 'https://vixsrc.to/movie/969681',
+          filename: 'Spider-Man.Brand.New.Day.2026.720P.EN.DHPictures.mp4',
+          quality: '720p',
+          onStatusChange
+        })
+      ).rejects.toThrow(/restricted by browser/i);
+
+      // Check that status was marked as CORS restricted and no file was generated
+      expect(statusLogs.some(s => s.status === 'cors_restricted')).toBe(true);
+    });
+
+    it('provides desktop CLI download commands in rejection error for embed servers', async () => {
+      try {
+        await triggerBrowserDownload({
+          url: 'https://vidcore.net/movie/969681',
+          filename: 'Spider-Man.Brand.New.Day.2026.1080P.EN.DHPictures.mp4'
+        });
+        expect.unreachable('Should have rejected with CORS restriction');
+      } catch (err) {
+        expect(err.code).toBe('CORS_RESTRICTED');
+        expect(err.isEmbedServer).toBe(true);
+        expect(err.commands).toBeDefined();
+        expect(err.commands['yt-dlp']).toContain('yt-dlp "https://vidcore.net/movie/969681"');
+        expect(err.commands.idm).toContain('idman /d "https://vidcore.net/movie/969681"');
+        expect(err.commands.aria2c).toContain('aria2c -s 16 -x 16');
+        expect(err.commands.ffmpeg).toContain('ffmpeg -i "https://vidcore.net/movie/969681"');
+        expect(err.commands.vlc).toContain('vlc "https://vidcore.net/movie/969681"');
       }
+    });
+  });
+
+  describe('Synthetic 3 KB Dummy File Prevention', () => {
+    it('disallows createMp4Blob synthetic generation and throws explicit error', () => {
+      expect(() => createMp4Blob()).toThrow(/Synthetic placeholder MP4 generation has been permanently removed/i);
+    });
+
+    it('exports downloadVideoFile alias to triggerBrowserDownload', () => {
+      expect(downloadVideoFile).toBe(triggerBrowserDownload);
     });
   });
 });

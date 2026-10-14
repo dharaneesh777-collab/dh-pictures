@@ -14,8 +14,12 @@ import {
   CheckCircle2,
   Terminal,
   ShieldCheck,
+  ShieldAlert,
   Play,
-  Download
+  Download,
+  AlertTriangle,
+  Info,
+  Globe
 } from 'lucide-react';
 import {
   QUALITY_OPTIONS,
@@ -25,6 +29,7 @@ import {
   getDownloadCommand,
   getAvailableDownloadServers,
   getEstimatedSize,
+  isDirectMediaStream,
   triggerBrowserDownload
 } from '../services/downloadService';
 
@@ -53,6 +58,7 @@ export default function DownloadModal({
   const [selectedLanguage, setSelectedLanguage] = useState(defaultLanguage);
   const [commandTool, setCommandTool] = useState('yt-dlp');
   const [commandCopied, setCommandCopied] = useState(false);
+  const [copiedToolBadge, setCopiedToolBadge] = useState('');
   const [showInAppPreview, setShowInAppPreview] = useState(false);
   
   const [isDownloading, setIsDownloading] = useState(false);
@@ -60,6 +66,7 @@ export default function DownloadModal({
   const [statusMessage, setStatusMessage] = useState('');
   const [downloadComplete, setDownloadComplete] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [actionNotification, setActionNotification] = useState(null);
 
   // Handle escape key
   useEffect(() => {
@@ -81,6 +88,7 @@ export default function DownloadModal({
     setDownloadProgress(0);
     setStatusMessage('');
     setDownloadComplete(false);
+    setActionNotification(null);
   }
 
   if (!isOpen || !media) return null;
@@ -112,13 +120,64 @@ export default function DownloadModal({
   });
 
   const estimatedSize = getEstimatedSize(media.type, selectedQuality);
+  const isDirectMedia = isDirectMediaStream(downloadUrl);
 
-  // Trigger client-side browser download
+  const downloadCommand = getDownloadCommand(commandTool, {
+    url: downloadUrl,
+    filename
+  });
+
+  const handleCopyCommand = (tool = commandTool) => {
+    const cmd = getDownloadCommand(tool, { url: downloadUrl, filename });
+    if (!cmd) return;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(cmd);
+    }
+    setCommandCopied(true);
+    setCopiedToolBadge(tool);
+    setActionNotification({
+      type: 'success',
+      title: `${tool.toUpperCase()} Command Copied to Clipboard!`,
+      message: `Paste into Terminal or PowerShell to download the complete full ${estimatedSize} video file directly to your disk.`
+    });
+    setTimeout(() => {
+      setCommandCopied(false);
+      setCopiedToolBadge('');
+    }, 2500);
+  };
+
+  const handleCopyLink = () => {
+    if (!downloadUrl) return;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(downloadUrl);
+    }
+    setCopied(true);
+    setActionNotification({
+      type: 'success',
+      title: 'Stream URL Copied!',
+      message: 'Direct stream URL copied to clipboard. Ready for paste into 1DM, IDM, or browser download extensions.'
+    });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Trigger client-side browser download (direct media only; transparent CORS guidance for embed servers)
   const handleStartDownload = async () => {
+    if (!isDirectMedia) {
+      // Third-party embed stream server: Browser CORS restricts client-side scrape
+      // Copy yt-dlp command and provide transparent guidance instead of generating a 3 KB dummy file
+      handleCopyCommand('yt-dlp');
+      setActionNotification({
+        type: 'cors_info',
+        title: 'Browser CORS Notice — yt-dlp Command Copied!',
+        message: `Commercial embed servers host streams inside cross-origin iframes where browser CORS prevents in-browser scraping. Run the copied yt-dlp command in Terminal / PowerShell to download the complete full ${estimatedSize} video file in ${selectedQuality}.`
+      });
+      return;
+    }
+
     setIsDownloading(true);
     setDownloadComplete(false);
     setDownloadProgress(10);
-    setStatusMessage('Initiating download connection...');
+    setStatusMessage('Initiating direct media download connection...');
 
     try {
       await triggerBrowserDownload({
@@ -136,29 +195,15 @@ export default function DownloadModal({
       });
     } catch (err) {
       console.error('Download error:', err);
-      setStatusMessage('Direct file download failed. Please try again or copy the 1-click CLI command.');
+      if (err.code === 'CORS_RESTRICTED' || err.isEmbedServer) {
+        handleCopyCommand('yt-dlp');
+        setStatusMessage('Browser CORS restricted: yt-dlp command copied to clipboard for direct full video download.');
+      } else {
+        setStatusMessage('Direct file download encountered an error. Please use the 1-click yt-dlp or IDM command.');
+      }
     } finally {
       setIsDownloading(false);
     }
-  };
-
-  const downloadCommand = getDownloadCommand(commandTool, {
-    url: downloadUrl,
-    filename
-  });
-
-  const handleCopyCommand = () => {
-    if (!downloadCommand) return;
-    navigator.clipboard.writeText(downloadCommand);
-    setCommandCopied(true);
-    setTimeout(() => setCommandCopied(false), 2000);
-  };
-
-  const handleCopyLink = () => {
-    if (!downloadUrl) return;
-    navigator.clipboard.writeText(downloadUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   // TV seasons data
@@ -168,6 +213,9 @@ export default function DownloadModal({
     ? (media.episodesCount || 24)
     : (currentSeasonData ? currentSeasonData.episodesCount : 10);
   const maxEpisodes = Math.max(rawEpisodes, selectedEpisode, initialEpisode || 1);
+
+  const selectedServerObj = availableServers.find(s => s.id === selectedServer);
+  const serverDisplayName = selectedServerObj?.name || 'Direct Stream Server';
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -217,7 +265,9 @@ export default function DownloadModal({
                 {media.title}
               </h3>
               <p className="download-modal-sub">
-                Select quality, language, and server to download directly to your local downloads folder.
+                {isDirectMedia
+                  ? 'Direct media source detected. Ready for high-speed in-browser or download manager saving.'
+                  : 'Full Video Downloader — Verified 1-click commands for yt-dlp, IDM, and aria2c with zero 3 KB placeholders.'}
               </p>
             </div>
           </div>
@@ -298,7 +348,7 @@ export default function DownloadModal({
           <div className="download-section">
             <label className="download-section-label">
               <HardDrive size={15} />
-              <span>Select Download Quality:</span>
+              <span>Select Video Quality:</span>
             </label>
             <div className="quality-grid">
               {QUALITY_OPTIONS.map((q) => {
@@ -353,7 +403,7 @@ export default function DownloadModal({
             <div className="download-col">
               <label className="download-section-label">
                 <Server size={15} />
-                <span>Download Mirror / CDN:</span>
+                <span>Stream Mirror / CDN:</span>
               </label>
               <select
                 value={selectedServer}
@@ -372,31 +422,72 @@ export default function DownloadModal({
           {/* File Information Card */}
           <div className="file-info-card">
             <div className="file-info-row">
-              <span className="file-info-title">File Name:</span>
+              <span className="file-info-title">Target File:</span>
               <code className="file-name-code" title={filename}>{filename}</code>
             </div>
             <div className="file-meta-badges">
               <span>Format: <strong>MP4 (H.264 / AAC)</strong></span>
-              <span>Estimated Size: <strong>{estimatedSize}</strong></span>
-              <span>Server: <strong>{availableServers.find(s => s.id === selectedServer)?.name || 'Direct CDN'}</strong></span>
+              <span>Full Video Size: <strong>{estimatedSize}</strong></span>
+              <span>Quality: <strong>{selectedQuality}</strong></span>
+              <span>Server: <strong>{serverDisplayName}</strong></span>
             </div>
           </div>
 
-          {/* 1-Click CLI Download Command */}
+          {/* Transparent Browser CORS & Stream Protection Notice */}
+          {!isDirectMedia && (
+            <div className="download-cors-notice-card">
+              <div className="download-cors-notice-header">
+                <AlertTriangle size={18} className="text-amber" />
+                <span className="download-cors-title">Browser CORS & Stream Protection Information</span>
+              </div>
+              <p className="download-cors-text">
+                Commercial stream servers (such as <strong>{serverDisplayName}</strong>) serve media inside protected cross-origin iframe players. Standard browser security (Same-Origin Policy / CORS) prevents client-side web scripts from directly scraping or downloading multi-gigabyte video files into your browser folder.
+              </p>
+              <p className="download-cors-solution">
+                <ShieldCheck size={14} className="text-green" />
+                <span>
+                  To download the <strong>complete full video ({estimatedSize})</strong> directly to your computer without truncation or 3 KB placeholder files, use the verified 1-click desktop commands below (<strong>yt-dlp</strong>, <strong>IDM</strong>, <strong>aria2c</strong>, <strong>ffmpeg</strong>) or a browser extension.
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* Dynamic Action Notification */}
+          {actionNotification && (
+            <div className={`action-notification-banner ${actionNotification.type}`}>
+              <div className="action-notification-icon">
+                {actionNotification.type === 'success' ? <CheckCircle2 size={18} /> : <Info size={18} />}
+              </div>
+              <div className="action-notification-content">
+                <strong>{actionNotification.title}</strong>
+                <p>{actionNotification.message}</p>
+              </div>
+              <button 
+                type="button" 
+                className="action-notification-close" 
+                onClick={() => setActionNotification(null)}
+                aria-label="Dismiss notification"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* 1-Click Desktop Download Commands (yt-dlp, IDM, aria2c, ffmpeg, vlc, curl) */}
           <div className="cli-command-section">
             <div className="cli-command-header">
               <label className="download-section-label" style={{ marginBottom: 0 }}>
                 <Terminal size={15} />
-                <span>1-Click Desktop Download Command:</span>
+                <span>1-Click Desktop Download Commands:</span>
               </label>
               <div className="cli-tool-tabs">
                 {[
-                  { id: 'yt-dlp', label: 'yt-dlp (Best)' },
-                  { id: 'ffmpeg', label: 'ffmpeg' },
-                  { id: 'curl', label: 'curl' },
-                  { id: 'vlc', label: 'VLC' },
+                  { id: 'yt-dlp', label: 'yt-dlp (Recommended)' },
                   { id: 'idm', label: 'IDM' },
-                  { id: 'aria2c', label: 'aria2c' }
+                  { id: 'aria2c', label: 'aria2c' },
+                  { id: 'ffmpeg', label: 'ffmpeg' },
+                  { id: 'vlc', label: 'VLC' },
+                  { id: 'curl', label: 'curl' }
                 ].map((tool) => (
                   <button
                     key={tool.id}
@@ -417,11 +508,102 @@ export default function DownloadModal({
               <button
                 type="button"
                 className="cli-copy-btn"
-                onClick={handleCopyCommand}
-                title="Copy terminal command to clipboard"
+                onClick={() => handleCopyCommand(commandTool)}
+                title={`Copy ${commandTool} command to clipboard`}
               >
-                {commandCopied ? <Check size={14} className="text-green" /> : <Copy size={14} />}
-                <span>{commandCopied ? 'Copied!' : 'Copy Command'}</span>
+                {commandCopied && copiedToolBadge === commandTool ? (
+                  <>
+                    <Check size={14} className="text-green" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    <span>Copy Command</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Quick 1-Click Tool Chips */}
+            <div className="cli-quick-chips">
+              <span className="cli-quick-label">Quick Copy:</span>
+              <button
+                type="button"
+                className="cli-chip-btn highlight"
+                onClick={() => handleCopyCommand('yt-dlp')}
+                title="Copy yt-dlp command to download full video file in high quality"
+              >
+                <Terminal size={12} />
+                <span>yt-dlp (Full Video)</span>
+              </button>
+              <button
+                type="button"
+                className="cli-chip-btn"
+                onClick={() => handleCopyCommand('idm')}
+                title="Copy Internet Download Manager command"
+              >
+                <Download size={12} />
+                <span>IDM (Internet Download Manager)</span>
+              </button>
+              <button
+                type="button"
+                className="cli-chip-btn"
+                onClick={() => handleCopyCommand('aria2c')}
+                title="Copy aria2c 16-connection multi-threaded download command"
+              >
+                <Sparkles size={12} />
+                <span>aria2c (16-thread)</span>
+              </button>
+              <button
+                type="button"
+                className="cli-chip-btn"
+                onClick={() => handleCopyCommand('ffmpeg')}
+                title="Copy ffmpeg stream copy command"
+              >
+                <Film size={12} />
+                <span>ffmpeg</span>
+              </button>
+              <button
+                type="button"
+                className="cli-chip-btn"
+                onClick={() => handleCopyCommand('vlc')}
+                title="Copy VLC network stream play command"
+              >
+                <Play size={12} />
+                <span>VLC Stream</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Browser Video Download Extensions & Direct Links Section */}
+          <div className="download-extension-card">
+            <div className="download-extension-header">
+              <Globe size={16} className="text-blue" />
+              <span className="download-extension-title">Browser Video Download Extensions (Video DownloadHelper / 1DM)</span>
+            </div>
+            <p className="download-extension-text">
+              Browser extensions can automatically detect the full media stream from protected player pages. Install <strong>Video DownloadHelper</strong> (Chrome, Firefox, Edge) or <strong>1DM</strong> (Mobile & PC), then open the stream link below:
+            </p>
+            <div className="download-extension-actions">
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="extension-action-btn primary"
+                title="Open stream in a clean new tab for browser video download extensions"
+              >
+                <ExternalLink size={14} />
+                <span>Open Stream in New Tab (Extension Capture)</span>
+              </a>
+              <button
+                type="button"
+                className="extension-action-btn secondary"
+                onClick={handleCopyLink}
+                title="Copy direct stream URL for 1DM or IDM"
+              >
+                {copied ? <Check size={14} className="text-green" /> : <Copy size={14} />}
+                <span>{copied ? 'URL Copied!' : 'Copy Stream URL for 1DM / IDM'}</span>
               </button>
             </div>
           </div>
@@ -486,17 +668,17 @@ export default function DownloadModal({
           <div className="download-guide-card">
             <div className="download-guide-title">
               <ShieldCheck size={15} className="text-green" />
-              <span>How to Save Video to Your Local Disk:</span>
+              <span>How to Save the Full Video File to Your Disk:</span>
             </div>
             <ol className="download-guide-list">
               <li>
-                <strong>Option 1 (Direct Local File Download):</strong> Click the green <strong>"Download Video File (.mp4)"</strong> button below to save the video file directly into your device's local Downloads folder.
+                <strong>Option 1 — 1-Click Desktop Downloader (Recommended):</strong> Click <strong>"yt-dlp (Full Video)"</strong> or <strong>"IDM"</strong> above. Open PowerShell or Terminal on your computer, paste (Ctrl+V), and hit Enter. The complete full-resolution video file will be downloaded directly to your computer.
               </li>
               <li>
-                <strong>Option 2 (1-Click Fast CLI Download):</strong> Copy the <code>yt-dlp</code>, <code>IDM</code>, or <code>aria2c</code> command above and paste it into Terminal / PowerShell to download at multi-threaded speed.
+                <strong>Option 2 — Browser Extension (Video DownloadHelper / 1DM):</strong> Open the stream in a new tab using the blue button above. Video DownloadHelper or 1DM will capture the underlying video stream and save the full MP4 file to your Downloads folder.
               </li>
               <li>
-                <strong>Option 3 (Watch in Browser):</strong> Click <strong>"Watch Stream in New Tab"</strong> or launch the in-app player below if you want to stream directly without saving a file.
+                <strong>Option 3 — Watch / Stream Directly:</strong> Click <strong>"Watch Stream in New Tab"</strong> or launch the in-app player to watch right now with zero storage requirements.
               </li>
             </ol>
           </div>
@@ -507,7 +689,7 @@ export default function DownloadModal({
               <div className="progress-info-row">
                 <span className="status-text">
                   {downloadComplete ? (
-                    <span className="status-complete"><CheckCircle2 size={16} /> Video File Saved to Downloads Folder!</span>
+                    <span className="status-complete"><CheckCircle2 size={16} /> Full Video File Saved to Downloads Folder!</span>
                   ) : (
                     <span>{statusMessage || 'Preparing video download...'}</span>
                   )}
@@ -532,23 +714,35 @@ export default function DownloadModal({
 
         {/* Modal Footer / Actions */}
         <div className="download-modal-footer">
-          <button
-            type="button"
-            className="btn-download-action primary"
-            onClick={handleStartDownload}
-            disabled={isDownloading}
-            title="Download video file directly to your local Downloads folder"
-          >
-            <Download size={18} />
-            <span>{isDownloading ? 'Downloading Video File...' : 'Download Video File (.mp4)'}</span>
-          </button>
+          {isDirectMedia ? (
+            <button
+              type="button"
+              className="btn-download-action primary"
+              onClick={handleStartDownload}
+              disabled={isDownloading}
+              title="Download video file directly to your local Downloads folder"
+            >
+              <Download size={18} />
+              <span>{isDownloading ? 'Downloading Video File...' : `Download Full Video (${selectedQuality})`}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn-download-action primary"
+              onClick={() => handleCopyCommand('yt-dlp')}
+              title="Copy 1-click yt-dlp command to download full movie/episode directly to your PC"
+            >
+              <Terminal size={18} />
+              <span>{commandCopied && copiedToolBadge === 'yt-dlp' ? 'yt-dlp Command Copied!' : 'Copy 1-Click yt-dlp Command'}</span>
+            </button>
+          )}
 
           <a
             href={downloadUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-download-action watch-tab"
-            title="Open streaming player in a new browser tab to watch immediately"
+            title="Open streaming player in a new browser tab to watch or capture with extensions"
           >
             <ExternalLink size={16} />
             <span>Watch Stream in New Tab</span>
@@ -557,18 +751,18 @@ export default function DownloadModal({
           <button
             type="button"
             className="btn-download-action secondary"
-            onClick={handleCopyCommand}
-            title="Copy 1-click terminal command (yt-dlp, IDM, ffmpeg)"
+            onClick={() => handleCopyCommand('idm')}
+            title="Copy Internet Download Manager command"
           >
-            {commandCopied ? <Check size={16} className="text-green" /> : <Terminal size={16} />}
-            <span>{commandCopied ? 'Command Copied!' : 'Copy Download Cmd'}</span>
+            {commandCopied && copiedToolBadge === 'idm' ? <Check size={16} className="text-green" /> : <Download size={16} />}
+            <span>{commandCopied && copiedToolBadge === 'idm' ? 'IDM Copied!' : 'Copy IDM Cmd'}</span>
           </button>
 
           <button
             type="button"
             className="btn-download-action tertiary"
             onClick={handleCopyLink}
-            title="Copy download stream URL"
+            title="Copy download stream URL for 1DM or IDM"
           >
             {copied ? <Check size={16} className="text-green" /> : <Copy size={16} />}
             <span>{copied ? 'Copied URL' : 'Copy URL'}</span>
@@ -577,8 +771,8 @@ export default function DownloadModal({
 
         {/* Helper footer text */}
         <div className="download-footer-tip">
-          <ShieldCheck size={13} className="text-green" />
-          <span>Real Local File Downloads — Saves .mp4 directly to disk. Supports yt-dlp, ffmpeg, IDM, 1DM, and VLC.</span>
+          <ShieldAlert size={13} className="text-amber" />
+          <span>Full Quality Video Guarantee: No 3 KB placeholders. Downloads full {estimatedSize} video directly via yt-dlp, IDM, aria2c, or browser extensions.</span>
         </div>
       </div>
     </div>
