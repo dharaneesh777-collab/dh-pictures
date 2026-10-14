@@ -72,6 +72,17 @@ export default function DownloadModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const currentKey = `${media?.id || ''}-${selectedSeason}-${selectedEpisode}-${selectedQuality}-${selectedServer}`;
+  const [prevKey, setPrevKey] = useState(currentKey);
+
+  if (prevKey !== currentKey) {
+    setPrevKey(currentKey);
+    setIsDownloading(false);
+    setDownloadProgress(0);
+    setStatusMessage('');
+    setDownloadComplete(false);
+  }
+
   if (!isOpen || !media) return null;
 
   const isTv = media.type === 'tv';

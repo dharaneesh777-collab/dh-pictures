@@ -364,5 +364,76 @@ describe('Download Service & Link Builder Tests', () => {
 
       vi.useRealTimers();
     });
+
+    it('contains full ISO compliant atoms: avc1, stbl, minf, trak, mdia, and h264 video codec', async () => {
+      const blob = createMp4Blob({
+        title: 'Inception',
+        quality: '1080p',
+        filename: 'Inception.2010.1080P.mp4'
+      });
+      const text = new TextDecoder('latin1').decode(await blob.arrayBuffer());
+
+      expect(text).toContain('ftyp');
+      expect(text).toContain('isom');
+      expect(text).toContain('moov');
+      expect(text).toContain('trak');
+      expect(text).toContain('tkhd');
+      expect(text).toContain('mdia');
+      expect(text).toContain('minf');
+      expect(text).toContain('stbl');
+      expect(text).toContain('stsd');
+      expect(text).toContain('avc1');
+      expect(text).toContain('mdat');
+      expect(text).toContain('1920x1080');
+    });
+
+    it('handles direct media stream fetching with chunked progress reporting', async () => {
+      const chunk1 = new Uint8Array([1, 2, 3, 4]);
+      const chunk2 = new Uint8Array([5, 6, 7, 8]);
+      let readCount = 0;
+
+      const mockReader = {
+        read: vi.fn().mockImplementation(() => {
+          readCount++;
+          if (readCount === 1) return Promise.resolve({ done: false, value: chunk1 });
+          if (readCount === 2) return Promise.resolve({ done: false, value: chunk2 });
+          return Promise.resolve({ done: true, value: undefined });
+        })
+      };
+
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: {
+          get: (name) => (name.toLowerCase() === 'content-length' ? '8' : 'video/mp4')
+        },
+        body: {
+          getReader: () => mockReader
+        }
+      });
+
+      const progressLogs = [];
+      const result = await triggerBrowserDownload({
+        url: 'https://example.com/direct/video.mp4',
+        filename: 'direct_stream.mp4',
+        onStatusChange: (status) => progressLogs.push(status)
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.blob).toBeDefined();
+      expect(result.blob.size).toBe(8);
+      expect(progressLogs.length).toBeGreaterThanOrEqual(1);
+
+      globalThis.fetch = origFetch;
+    });
+
+    it('supports all 4 quality tiers and embeds metadata in container', async () => {
+      for (const q of ['1080p', '720p', '480p', '360p']) {
+        const b = createMp4Blob({ quality: q, title: 'Test Quality' });
+        const t = new TextDecoder('latin1').decode(await b.arrayBuffer());
+        expect(t).toContain(q);
+        expect(b.type).toBe('video/mp4');
+      }
+    });
   });
 });
