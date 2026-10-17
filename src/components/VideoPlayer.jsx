@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   STREAM_SERVERS, 
   getStreamUrl,
-  getTrailerUrl
+  getTrailerUrl,
+  getNextAvailableServer,
+  getServerById
 } from '../services/streamServers';
 import { 
   Server, 
@@ -18,7 +20,11 @@ import {
   ChevronRight,
   Film,
   Download,
-  X
+  X,
+  SkipForward,
+  Zap,
+  AlertTriangle,
+  RotateCcw
 } from 'lucide-react';
 import EpisodeSelector from './EpisodeSelector';
 
@@ -36,30 +42,185 @@ export default function VideoPlayer({
   setCinemaMode,
   onOpenTrailer,
   onOpenDownload,
-  onClose
+  onClose,
+  autoSwitchServer = true,
+  failoverTimeout = 7
 }) {
+  const iframeRef = useRef(null);
+
   const [copied, setCopied] = useState(false);
   const [useSandbox, setUseSandbox] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  if (!media) return null;
+  // Auto-switch server failover state
+  const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(autoSwitchServer);
+  const [countdown, setCountdown] = useState(failoverTimeout);
+  const [isCountingDown, setIsCountingDown] = useState(autoSwitchServer && activeServer !== 'trailer');
+  const [failedServers, setFailedServers] = useState([]);
+  const [lastSwitchNotice, setLastSwitchNotice] = useState(null);
+  const [, setHasInteracted] = useState(false);
 
-  const isAnime = media.type === 'anime';
-  const isTv = media.type === 'tv';
+  // Sync state if media or episode changes
+  const [prevMediaKey, setPrevMediaKey] = useState(`${media?.id}-${season}-${episode}`);
+  const currentMediaKey = `${media?.id}-${season}-${episode}`;
+  if (currentMediaKey !== prevMediaKey) {
+    setPrevMediaKey(currentMediaKey);
+    setFailedServers([]);
+    setLastSwitchNotice(null);
+    setHasInteracted(false);
+    if (autoSwitchEnabled && activeServer !== 'trailer') {
+      setCountdown(failoverTimeout);
+      setIsCountingDown(true);
+    }
+  }
+
+  // Sync state if activeServer changes externally
+  const [prevServer, setPrevServer] = useState(activeServer);
+  if (activeServer !== prevServer) {
+    setPrevServer(activeServer);
+    setHasInteracted(false);
+    if (autoSwitchEnabled && activeServer !== 'trailer') {
+      setCountdown(failoverTimeout);
+      setIsCountingDown(true);
+    } else {
+      setIsCountingDown(false);
+    }
+  }
+
+  const isAnime = media?.type === 'anime';
+  const isTv = media?.type === 'tv';
 
   // Compute stream URL
   const currentStreamUrl = activeServer === 'trailer'
-    ? getTrailerUrl(media.trailerKey)
+    ? getTrailerUrl(media?.trailerKey)
     : getStreamUrl({
         serverId: activeServer,
-        type: media.type || 'movie',
-        id: media.id,
+        type: media?.type || 'movie',
+        id: media?.id,
         season,
         episode,
-        anilistId: media.anilistId || media.id,
+        anilistId: media?.anilistId || media?.id,
         language,
-        trailerKey: media.trailerKey
+        trailerKey: media?.trailerKey
       });
+
+  const nextServerObj = getNextAvailableServer(activeServer, media, failedServers);
+  const currentServerObj = getServerById(activeServer);
+
+  // Auto-switch failover trigger
+  const triggerAutoSwitch = useCallback((reason = 'auto') => {
+    const next = getNextAvailableServer(activeServer, media, failedServers);
+    const curr = getServerById(activeServer);
+
+    if (next && next.id !== activeServer) {
+      setFailedServers(prev => {
+        if (!prev.includes(activeServer)) {
+          return [...prev, activeServer];
+        }
+        return prev;
+      });
+
+      setActiveServer(next.id);
+      setCountdown(failoverTimeout);
+      setIsCountingDown(true);
+
+      const reasonDesc = reason === 'connection_error'
+        ? 'Connection failed'
+        : reason === 'manual_skip'
+        ? 'Switched'
+        : 'Server blocked or unavailable';
+
+      setLastSwitchNotice({
+        type: 'warning',
+        from: curr?.shortName || activeServer,
+        to: next.shortName,
+        message: `${reasonDesc} on ${curr?.shortName || activeServer}. Automatically switched to ${next.name}.`
+      });
+    } else {
+      setIsCountingDown(false);
+      setLastSwitchNotice({
+        type: 'error',
+        message: 'All available streaming servers have been tried. You can click any server below to retry, or switch to YouTube Trailer.'
+      });
+    }
+  }, [activeServer, media, failedServers, failoverTimeout, setActiveServer]);
+
+  // Countdown watchdog timer
+  useEffect(() => {
+    if (!isCountingDown || !autoSwitchEnabled || activeServer === 'trailer') {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          triggerAutoSwitch('timeout_or_blocked');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isCountingDown, autoSwitchEnabled, activeServer, triggerAutoSwitch]);
+
+  // Window blur / iframe interaction detection (dismiss watchdog when user interacts with player)
+  useEffect(() => {
+    const handleBlur = () => {
+      setTimeout(() => {
+        if (document.activeElement === iframeRef.current) {
+          setIsCountingDown(false);
+          setHasInteracted(true);
+        }
+      }, 100);
+    };
+
+    window.addEventListener('blur', handleBlur);
+    return () => window.removeEventListener('blur', handleBlur);
+  }, []);
+
+  // Player message event listener
+  useEffect(() => {
+    const handleMessage = (e) => {
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (data && (data.event === 'error' || data.type === 'error' || data.error)) {
+          triggerAutoSwitch('player_error_event');
+        }
+      } catch {
+        // Non-JSON message from external iframe
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [triggerAutoSwitch]);
+
+  const handleConfirmWorking = () => {
+    setIsCountingDown(false);
+    setHasInteracted(true);
+    setLastSwitchNotice({
+      type: 'success',
+      message: `Stream active on ${currentServerObj?.shortName || 'current server'}. Auto-failover paused.`
+    });
+    setTimeout(() => {
+      setLastSwitchNotice(prev => (prev?.type === 'success' ? null : prev));
+    }, 4000);
+  };
+
+  const handleManualServerSelect = (serverId) => {
+    setActiveServer(serverId);
+    // If reselecting a previously failed server, remove it from failed list so user can retry
+    setFailedServers(prev => prev.filter(id => id !== serverId));
+    if (serverId !== 'trailer' && autoSwitchEnabled) {
+      setCountdown(failoverTimeout);
+      setIsCountingDown(true);
+      setHasInteracted(false);
+    } else {
+      setIsCountingDown(false);
+    }
+  };
 
   const handleCopyUrl = () => {
     if (!currentStreamUrl) return;
@@ -70,10 +231,14 @@ export default function VideoPlayer({
 
   const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
+    if (autoSwitchEnabled && activeServer !== 'trailer') {
+      setCountdown(failoverTimeout);
+      setIsCountingDown(true);
+    }
   };
 
   // Seasons data for TV
-  const seasons = media.seasons || [{ seasonNumber: 1, episodesCount: 10 }];
+  const seasons = media?.seasons || [{ seasonNumber: 1, episodesCount: 10 }];
   const currentSeasonData = seasons.find(s => s.seasonNumber === season) || seasons[0];
   const maxEpisodesInSeason = currentSeasonData ? currentSeasonData.episodesCount : 10;
   const totalSeasons = seasons.length;
@@ -92,7 +257,7 @@ export default function VideoPlayer({
 
   const handleNextEpisode = () => {
     if (isAnime) {
-      const maxEp = media.episodesCount || 1200;
+      const maxEp = media?.episodesCount || 1200;
       if (episode < maxEp) {
         setEpisode(episode + 1);
       }
@@ -110,6 +275,8 @@ export default function VideoPlayer({
   const sandboxAttr = useSandbox 
     ? 'allow-forms allow-scripts allow-same-origin allow-presentation allow-top-navigation-by-user-activation'
     : undefined;
+
+  if (!media) return null;
 
   return (
     <div className={`player-wrapper ${cinemaMode ? 'cinema-expanded' : ''}`}>
@@ -130,6 +297,19 @@ export default function VideoPlayer({
         </div>
 
         <div className="player-quick-actions">
+          {/* Quick Next Server Switcher */}
+          {nextServerObj && nextServerObj.id !== activeServer && activeServer !== 'trailer' && (
+            <button
+              type="button"
+              className="btn-control btn-next-server"
+              onClick={() => triggerAutoSwitch('manual_skip')}
+              title={`Switch to next server: ${nextServerObj.shortName}`}
+            >
+              <SkipForward size={14} />
+              <span>Next Server ({nextServerObj.shortName})</span>
+            </button>
+          )}
+
           {onOpenDownload && (
             <button
               className="btn-control btn-download-quick"
@@ -206,9 +386,88 @@ export default function VideoPlayer({
         </div>
       </div>
 
+      {/* Auto-Switch Notice Toast */}
+      {lastSwitchNotice && (
+        <div className={`failover-switch-toast ${lastSwitchNotice.type || 'warning'}`}>
+          <div className="toast-icon">
+            {lastSwitchNotice.type === 'success' ? (
+              <Check size={16} className="text-green" />
+            ) : lastSwitchNotice.type === 'error' ? (
+              <AlertTriangle size={16} className="text-red" />
+            ) : (
+              <Zap size={16} className="text-amber" />
+            )}
+          </div>
+          <span className="toast-text">{lastSwitchNotice.message}</span>
+          <button
+            type="button"
+            className="toast-close-btn"
+            onClick={() => setLastSwitchNotice(null)}
+            aria-label="Dismiss notice"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Auto-Failover Watchdog Banner */}
+      {isCountingDown && autoSwitchEnabled && activeServer !== 'trailer' && nextServerObj && (
+        <div className="failover-watchdog-banner">
+          <div className="failover-watchdog-left">
+            <span className="failover-pulse-dot" />
+            <div className="failover-text-group">
+              <span className="failover-badge">Auto-Failover Active</span>
+              <span className="failover-msg">
+                Checking <strong>{currentServerObj?.shortName || activeServer}</strong>. If blocked or video doesn't play, auto-switching to <strong>{nextServerObj.shortName}</strong> in <strong>{countdown}s</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="failover-watchdog-actions">
+            <button
+              type="button"
+              className="btn-failover-action primary"
+              onClick={() => triggerAutoSwitch('manual_skip')}
+              title={`Immediately switch to ${nextServerObj.shortName}`}
+            >
+              <SkipForward size={13} />
+              <span>Switch Now ({nextServerObj.shortName})</span>
+            </button>
+            <button
+              type="button"
+              className="btn-failover-action secondary"
+              onClick={handleConfirmWorking}
+              title="Dismiss countdown and stay on this server"
+            >
+              <Check size={13} />
+              <span>Playing Fine (Stay)</span>
+            </button>
+            <button
+              type="button"
+              className="btn-failover-action ghost"
+              onClick={() => {
+                setIsCountingDown(false);
+                setAutoSwitchEnabled(false);
+              }}
+              title="Turn off automatic failover"
+            >
+              <span>Disable</span>
+            </button>
+          </div>
+
+          <div className="failover-progress-track">
+            <div 
+              className="failover-progress-fill" 
+              style={{ width: `${Math.max(0, Math.min(100, (countdown / (failoverTimeout || 7)) * 100))}%` }} 
+            />
+          </div>
+        </div>
+      )}
+
       {/* Main Video Screen Container */}
       <div className="video-container">
         <iframe
+          ref={iframeRef}
           key={`${currentStreamUrl}-${refreshKey}`}
           src={currentStreamUrl}
           title={`${media.title} - Video Player`}
@@ -216,6 +475,7 @@ export default function VideoPlayer({
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
           allowFullScreen
           sandbox={sandboxAttr}
+          onError={() => triggerAutoSwitch('connection_error')}
         />
 
         {/* Floating Quick Episode Bar on TV / Anime */}
@@ -245,30 +505,74 @@ export default function VideoPlayer({
 
       {/* Server Switcher Bar */}
       <div className="servers-bar">
-        <div className="servers-label-group">
-          <Server size={17} className="server-icon" />
-          <span className="servers-title">Available Servers:</span>
+        <div className="servers-header-row">
+          <div className="servers-label-group">
+            <Server size={17} className="server-icon" />
+            <span className="servers-title">Available Servers:</span>
+          </div>
+
+          <div className="servers-header-controls">
+            <button
+              type="button"
+              className={`btn-auto-switch-pill ${autoSwitchEnabled ? 'enabled' : 'disabled'}`}
+              onClick={() => {
+                const nextState = !autoSwitchEnabled;
+                setAutoSwitchEnabled(nextState);
+                if (!nextState) {
+                  setIsCountingDown(false);
+                } else if (activeServer !== 'trailer') {
+                  setCountdown(failoverTimeout);
+                  setIsCountingDown(true);
+                }
+              }}
+              title={autoSwitchEnabled ? 'Auto-failover enabled: switches to next server on block or error' : 'Auto-failover disabled'}
+            >
+              <Zap size={12} className={autoSwitchEnabled ? 'text-amber' : ''} />
+              <span>Auto-Switch: {autoSwitchEnabled ? 'ON' : 'OFF'}</span>
+            </button>
+
+            {failedServers.length > 0 && (
+              <button
+                type="button"
+                className="btn-reset-servers-pill"
+                onClick={() => {
+                  setFailedServers([]);
+                  setLastSwitchNotice(null);
+                }}
+                title="Reset failed server marks and retry from Server 1"
+              >
+                <RotateCcw size={12} />
+                <span>Reset Status ({failedServers.length} failed)</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="servers-list">
           {STREAM_SERVERS.map((srv) => {
             const isSelected = activeServer === srv.id;
             const isSupported = srv.supports.includes(media.type) || (srv.id === 'anime' && isAnime);
+            const isFailed = failedServers.includes(srv.id);
 
             return (
               <button
                 key={srv.id}
-                onClick={() => setActiveServer(srv.id)}
-                className={`server-btn ${isSelected ? 'selected' : ''} ${!isSupported ? 'not-recommended' : ''}`}
+                onClick={() => handleManualServerSelect(srv.id)}
+                className={`server-btn ${isSelected ? 'selected' : ''} ${!isSupported ? 'not-recommended' : ''} ${isFailed ? 'has-failed' : ''}`}
                 style={{
-                  '--accent-color': srv.badgeColor
+                  '--accent-color': isFailed ? '#ef4444' : srv.badgeColor
                 }}
-                title={`${srv.name} - ${srv.description}`}
+                title={`${srv.name} - ${srv.description}${isFailed ? ' (Marked as failed/blocked)' : ''}`}
               >
-                <span className="server-tag" style={{ backgroundColor: srv.badgeColor }}>
+                <span className="server-tag" style={{ backgroundColor: isFailed ? '#ef4444' : srv.badgeColor }}>
                   {srv.tag}
                 </span>
                 <span className="server-name">{srv.shortName}</span>
+                {isFailed && (
+                  <span className="server-failed-badge">
+                    <AlertTriangle size={10} /> Blocked / Failed
+                  </span>
+                )}
                 {isSelected && <span className="active-dot" />}
               </button>
             );
@@ -276,7 +580,7 @@ export default function VideoPlayer({
 
           {media.trailerKey && (
             <button
-              onClick={() => setActiveServer('trailer')}
+              onClick={() => handleManualServerSelect('trailer')}
               className={`server-btn ${activeServer === 'trailer' ? 'selected' : ''}`}
               style={{
                 '--accent-color': '#ef4444'

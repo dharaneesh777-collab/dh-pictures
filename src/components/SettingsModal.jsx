@@ -13,6 +13,8 @@ export default function SettingsModal({
   const [defaultServer, setDefaultServer] = useState(settings.defaultServer || 'server1');
   const [defaultAnimeAudio, setDefaultAnimeAudio] = useState(settings.defaultAnimeAudio || 'sub');
   const [sandboxDefault, setSandboxDefault] = useState(settings.sandboxDefault ?? false);
+  const [autoSwitchServer, setAutoSwitchServer] = useState(settings.autoSwitchServer ?? true);
+  const [failoverTimeout, setFailoverTimeout] = useState(settings.failoverTimeout || 7);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const handleSubmit = (e) => {
@@ -21,7 +23,9 @@ export default function SettingsModal({
       tmdbApiKey: apiKey.trim(),
       defaultServer,
       defaultAnimeAudio,
-      sandboxDefault
+      sandboxDefault,
+      autoSwitchServer,
+      failoverTimeout: Math.max(3, Math.min(30, Number(failoverTimeout) || 7))
     });
     setSavedSuccess(true);
     setTimeout(() => {
@@ -116,6 +120,34 @@ export default function SettingsModal({
               />
               <span>Enable Ad-Blocking Sandbox by default (restricts popups)</span>
             </label>
+          </div>
+
+          {/* Auto-Switch Server on Failure */}
+          <div className="setting-section checkbox-section">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={autoSwitchServer}
+                onChange={(e) => setAutoSwitchServer(e.target.checked)}
+              />
+              <span>Automatically switch to next server if current server is blocked or fails to play</span>
+            </label>
+            {autoSwitchServer && (
+              <div className="setting-sub-row" style={{ marginTop: '0.6rem', paddingLeft: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <label htmlFor="failover-timeout-input" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Failover Timeout (seconds):
+                </label>
+                <input
+                  id="failover-timeout-input"
+                  type="number"
+                  min="3"
+                  max="30"
+                  value={failoverTimeout}
+                  onChange={(e) => setFailoverTimeout(e.target.value)}
+                  style={{ width: '70px', padding: '0.3rem 0.5rem', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-subtle)', color: '#fff' }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Supported API Reference Accordion */}

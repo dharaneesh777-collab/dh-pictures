@@ -35,10 +35,12 @@ export default function App() {
         tmdbApiKey: '',
         defaultServer: 'server1',
         defaultAnimeAudio: 'sub',
-        sandboxDefault: false
+        sandboxDefault: false,
+        autoSwitchServer: true,
+        failoverTimeout: 7
       };
     } catch {
-      return { tmdbApiKey: '', defaultServer: 'server1', defaultAnimeAudio: 'sub', sandboxDefault: false };
+      return { tmdbApiKey: '', defaultServer: 'server1', defaultAnimeAudio: 'sub', sandboxDefault: false, autoSwitchServer: true, failoverTimeout: 7 };
     }
   });
 
@@ -370,6 +372,8 @@ export default function App() {
               setIsPlaying(false);
               setActiveMedia(null);
             }}
+            autoSwitchServer={settings.autoSwitchServer ?? true}
+            failoverTimeout={settings.failoverTimeout || 7}
           />
         )}
 

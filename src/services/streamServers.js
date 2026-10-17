@@ -187,3 +187,85 @@ export function getTrailerUrl(trailerKey) {
 
   return `https://www.youtube.com/embed/${key}?autoplay=1`;
 }
+
+/**
+ * Find server definition by ID
+ */
+export function getServerById(serverId) {
+  if (!serverId) return STREAM_SERVERS[0];
+  if (serverId === 'trailer') {
+    return {
+      id: 'trailer',
+      name: 'Official Trailer (YouTube)',
+      shortName: 'Trailer',
+      tag: 'Trailer',
+      badgeColor: '#ef4444',
+      description: 'Official YouTube Trailer'
+    };
+  }
+  return STREAM_SERVERS.find(s => s.id === serverId) || null;
+}
+
+/**
+ * Returns ordered list of supported streaming servers for a given media item
+ */
+export function getAvailableServersForMedia(media) {
+  if (!media) return STREAM_SERVERS.filter(s => s.id !== 'anime');
+  const isAnime = media.type === 'anime';
+  const isHindi = media.isHindi || media.preferredServer === 'server6';
+
+  if (isAnime) {
+    const animeServer = STREAM_SERVERS.find(s => s.id === 'anime');
+    const fallbackServers = STREAM_SERVERS.filter(s => s.id !== 'anime' && s.supports.includes('movie'));
+    return [animeServer, ...fallbackServers].filter(Boolean);
+  }
+
+  if (isHindi) {
+    const hindiServer = STREAM_SERVERS.find(s => s.id === 'server6');
+    const fallbackServers = STREAM_SERVERS.filter(s => s.id !== 'server6' && s.supports.includes(media.type || 'movie'));
+    return [hindiServer, ...fallbackServers].filter(Boolean);
+  }
+
+  // General movies / TV shows: Server 1 through 5, and Server 6 as backup
+  const supported = STREAM_SERVERS.filter(s => s.id !== 'anime' && s.supports.includes(media.type || 'movie'));
+  return supported.length > 0 ? supported : STREAM_SERVERS.filter(s => s.id !== 'anime');
+}
+
+/**
+ * Calculates the next available server when the current server fails or times out.
+ * Prioritizes servers that have not failed yet in the current session.
+ * 
+ * @param {string} currentServerId
+ * @param {object} media
+ * @param {Array|Set} failedServerIds - IDs of servers that previously failed
+ * @returns {object|null} Next server object, or null if all servers have been tried
+ */
+export function getNextAvailableServer(currentServerId, media, failedServerIds = []) {
+  const available = getAvailableServersForMedia(media);
+  if (!available || available.length === 0) return null;
+
+  const failedSet = new Set(Array.from(failedServerIds || []));
+  failedSet.add(currentServerId);
+
+  const currentIndex = available.findIndex(s => s.id === currentServerId);
+  const startIdx = currentIndex >= 0 ? currentIndex : 0;
+
+  // First pass: Find the next server that hasn't failed yet
+  for (let i = 1; i <= available.length; i++) {
+    const nextIdx = (startIdx + i) % available.length;
+    const candidate = available[nextIdx];
+    if (candidate && !failedSet.has(candidate.id)) {
+      return candidate;
+    }
+  }
+
+  // Second pass: If all servers failed, return the immediate next server in sequence
+  // to allow cycling rather than stalling
+  if (available.length > 1) {
+    const fallbackIdx = (startIdx + 1) % available.length;
+    return available[fallbackIdx];
+  }
+
+  return available[0] || null;
+}
+
